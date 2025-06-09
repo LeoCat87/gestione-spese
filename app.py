@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 EXCEL_PATH = "Spese_Leo.xlsx"
-FOGLIO_SPESE = "Spese"
+FOGLIO_SPESE = "Spese 2025"
 
 @st.cache_data
 def carica_spese():

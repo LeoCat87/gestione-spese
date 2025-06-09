@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -7,16 +6,11 @@ import matplotlib.pyplot as plt
 EXCEL_PATH = "Spese_Leo.xlsx"
 FOGLIO_SPESE = "Spese 2025"
 
-# Carica e pulisce i dati
 @st.cache_data
 def carica_spese():
     df = pd.read_excel(EXCEL_PATH, sheet_name=FOGLIO_SPESE)
-    # Rimuove colonne senza intestazione
-    df = df.loc[:, ~df.columns.str.contains("^Unnamed", na=False)]
-    # Rimuove colonne completamente vuote
-    df = df.dropna(axis=1, how='all')
-    # Rimuove righe completamente vuote
-    df = df.dropna(how='all')
+    # Elimina colonne totalmente vuote o colonne "Unnamed"
+    df = df.loc[:, ~df.columns.str.contains('^Unnamed') & df.notna().any()]
     return df
 
 # Mapping tag → macrocategorie
@@ -25,7 +19,7 @@ MAPPATURA = {
     "Spesa auto": ["Carburante", "Assicurazione", "Manutenzione auto"],
     "Spesa personale": ["Abbigliamento", "Parrucchiere", "Cura personale"],
     "Spesa tempo libero": ["Ristoranti", "Cinema", "Viaggi"],
-    "Altre spese": []  # tutto il resto va qui
+    "Altre spese": []
 }
 
 def assegna_macrocategoria(tag):
@@ -37,25 +31,22 @@ def assegna_macrocategoria(tag):
 # App principale
 st.title("Dashboard Spese Personali")
 
-try:
-    spese_df = carica_spese()
+spese_df = carica_spese()
 
-    # Pre-elabora dati
-    if "Tag" in spese_df.columns:
-        spese_df["Macrocategoria"] = spese_df["Tag"].apply(assegna_macrocategoria)
-    else:
-        spese_df["Macrocategoria"] = "Altre spese"
+# Pre-elabora dati
+if "Tag" in spese_df.columns and "Importo" in spese_df.columns:
+    spese_df["Macrocategoria"] = spese_df["Tag"].apply(assegna_macrocategoria)
 
-    # Totale per macrocategoria
+    # Totali per macrocategoria
     totali_macro = spese_df.groupby("Macrocategoria")["Importo"].sum()
 
-    # Totale per mese
+    # Totali per mese
     if "Data" in spese_df.columns:
-        spese_df["Mese"] = pd.to_datetime(spese_df["Data"], errors='coerce').dt.to_period("M")
+        spese_df["Mese"] = pd.to_datetime(spese_df["Data"]).dt.to_period("M")
         totali_mese = spese_df.groupby("Mese")["Importo"].sum()
     else:
-        st.warning("Colonna 'Data' non trovata nel file.")
         totali_mese = pd.Series(dtype=float)
+        st.warning("Colonna 'Data' non trovata nel file.")
 
     # Grafico a torta
     st.subheader("Spese per Macrocategoria")
@@ -76,5 +67,5 @@ try:
     st.subheader("Dettaglio Spese")
     st.dataframe(spese_df)
 
-except Exception as e:
-    st.error(f"Errore nel caricamento dati: {e}")
+else:
+    st.error("Il file Excel deve contenere almeno le colonne 'Tag' e 'Importo'.")

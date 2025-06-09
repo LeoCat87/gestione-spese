@@ -1,39 +1,47 @@
 import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
 
-# Deve essere la prima istruzione Streamlit nel file
 st.set_page_config(page_title="Gestione Spese", layout="wide")
 
-# ID del file Google Drive
 GOOGLE_DRIVE_ID = "1PJ9TCcq4iBHeg8CpC1KWss0UWSg86BJn"
 
 @st.cache_data(ttl=600)
-def carica_spese():
+def carica_file_excel():
     url = f"https://docs.google.com/spreadsheets/d/{GOOGLE_DRIVE_ID}/export?format=xlsx"
     xls = pd.ExcelFile(url)
-    df = pd.read_excel(xls, sheet_name="Spese 2025")
+    return xls
 
-    # Aggiungiamo la colonna Categoria in base al Tag
-    def categoria_per_tag(tag):
-        tag = str(tag).lower()
-        if tag in ["stipendio", "entrate", "reddito"]:
-            return "Entrate"
-        elif tag in ["affitto", "bollette", "spese fisse"]:
-            return "Uscite necessarie"
-        elif tag in ["cibo", "tempo libero", "viaggi"]:
-            return "Uscite variabili"
-        else:
-            return "Altro"
+xls = carica_file_excel()
 
-    df["Categoria"] = df["Tag"].apply(categoria_per_tag)
-    return df
+# Carico il foglio Spese 2025
+df_spese = pd.read_excel(xls, sheet_name="Spese 2025")
 
-# --- MAIN ---
+# Carico il foglio Dashboard 2025 (usato per la dashboard)
+df_dash = pd.read_excel(xls, sheet_name="Dashboard 2025")
 
 st.title("Gestione Spese")
 
-df_spese = carica_spese()
-
+# Vista spese dettagliate (mostra direttamente il foglio Spese 2025)
 st.subheader("Spese dettagliate")
 st.dataframe(df_spese)
 
+# Vista Dashboard (usa il foglio Dashboard 2025 come dati)
+st.subheader("Dashboard")
+st.dataframe(df_dash.style.format("{:,.2f} €"))
+
+# Grafico da df_dash (usando colonne e righe così come sono nel foglio Dashboard 2025)
+fig, ax = plt.subplots(figsize=(12, 6))
+
+# Assumo che la prima colonna di df_dash contenga le categorie (Entrate, Uscite, etc.)
+categorie = df_dash.iloc[:, 0]
+mesi = df_dash.columns[1:]  # le colonne successive sono mesi
+
+for i, categoria in enumerate(categorie):
+    ax.plot(mesi, df_dash.iloc[i, 1:], marker='o', label=categoria)
+
+ax.set_title("Dashboard Spese")
+ax.set_ylabel("Euro")
+ax.legend()
+plt.xticks(rotation=45)
+st.pyplot(fig)

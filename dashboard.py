@@ -9,8 +9,8 @@ FOGLIO_SPESE = "Spese 2025"
 @st.cache_data
 def carica_spese():
     df = pd.read_excel(EXCEL_PATH, sheet_name=FOGLIO_SPESE)
-    # Elimina colonne totalmente vuote o colonne "Unnamed"
-    df = df.loc[:, ~df.columns.str.contains('^Unnamed') & df.notna().any()]
+    df = df.loc[:, ~df.columns.str.contains("^Unnamed")]
+    df = df.dropna(axis=1, how='all')
     return df
 
 # Mapping tag → macrocategorie

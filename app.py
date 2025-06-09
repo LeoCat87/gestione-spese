@@ -3,24 +3,31 @@ import pandas as pd
 
 st.set_page_config(page_title="Gestione Spese", layout="wide")
 
+# Funzione per caricare il file Excel da Google Drive
+@st.cache_data
+def carica_file_excel():
+    url = "https://docs.google.com/uc?export=download&id=1PJ9TCcq4iBHeg8CpC1KWss0UWSg86BJn"
+    xls = pd.ExcelFile(url)
+    return xls
+
+# Funzione per caricare il foglio "Spese 2025" come DataFrame
 @st.cache_data
 def carica_spese():
-    # URL di download diretto dal file su Google Drive (ID specifico)
-    url = "https://docs.google.com/uc?export=download&id=1PJ9TCcq4iBHeg8CpC1KWss0UWSg86BJn"
-    df = pd.read_excel(url, sheet_name='Spese 2025')
+    xls = carica_file_excel()
+    df = pd.read_excel(xls, sheet_name="Spese 2025")
     return df
 
+# Mappatura Tag -> Categoria
 def categoria_per_tag(tag):
-    entrate = ["stipendio", "bonus", "interessi"]
-    uscite_necessarie = ["affitto", "bollette", "spesa"]
-    uscite_variabili = ["ristorante", "shopping", "tempo libero"]
+    entrate = ["Stipendio", "Bonus"]
+    uscite_necessarie = ["Affitto", "Bolletta", "Spesa"]
+    uscite_variabili = ["Svago", "Ristorante"]
 
-    tag_lower = str(tag).lower()
-    if tag_lower in entrate:
+    if tag in entrate:
         return "Entrate"
-    elif tag_lower in uscite_necessarie:
+    elif tag in uscite_necessarie:
         return "Uscite necessarie"
-    elif tag_lower in uscite_variabili:
+    elif tag in uscite_variabili:
         return "Uscite variabili"
     else:
         return "Altro"
@@ -28,26 +35,11 @@ def categoria_per_tag(tag):
 df_spese = carica_spese()
 df_spese["Categoria"] = df_spese["Tag"].apply(categoria_per_tag)
 
-st.title("Gestione Spese")
+# Visualizzazione tabella spese
+st.title("Spese dettagliate")
+st.dataframe(df_spese)
 
-view = st.sidebar.selectbox("Scegli vista", ["Spese dettagliate", "Dashboard"])
+# Visualizzazione dashboard statica (senza calcoli automatici)
+st.title("Dashboard")
+st.write("Qui andrà la dashboard, da implementare")
 
-if view == "Spese dettagliate":
-    st.header("Spese Dettagliate")
-    st.dataframe(df_spese[["Testo", "Valore", "Tag", "Categoria"]])
-
-elif view == "Dashboard":
-    st.header("Dashboard")
-    # Qui la dashboard non calcola ancora aggregati, ma mostra i dati base
-    pivot = pd.pivot_table(df_spese, values="Valore", index="Categoria", aggfunc="sum", fill_value=0)
-    pivot = pivot.reindex(["Entrate", "Uscite necessarie", "Uscite variabili", "Altro"], fill_value=0)
-
-    st.dataframe(pivot)
-
-    import matplotlib.pyplot as plt
-
-    fig, ax = plt.subplots()
-    pivot.plot(kind="bar", ax=ax, legend=False)
-    ax.set_ylabel("Euro")
-    ax.set_title("Somme per Categoria")
-    st.pyplot(fig)

@@ -1,47 +1,50 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 
+# Impostazioni pagina: DEVE essere la PRIMA istruzione Streamlit nel file
 st.set_page_config(page_title="Gestione Spese", layout="wide")
 
-GOOGLE_DRIVE_ID = "1PJ9TCcq4iBHeg8CpC1KWss0UWSg86BJn"
+# Funzione per caricare e cache il dataframe delle spese dal file Excel su Google Drive
+@st.cache_data
+def carica_spese():
+    # Link diretto per scaricare il file Excel da Google Drive usando l'ID
+    url = "https://docs.google.com/uc?export=download&id=1PJ9TCcq4iBHeg8CpC1KWss0UWSg86BJn"
+    # Leggi il foglio 'Spese 2025' dal file Excel
+    df = pd.read_excel(url, sheet_name='Spese 2025')
+    return df
 
-@st.cache_data(ttl=600)
-def carica_file_excel():
-    url = f"https://docs.google.com/spreadsheets/d/{GOOGLE_DRIVE_ID}/export?format=xlsx"
-    xls = pd.ExcelFile(url)
-    return xls
+# Carica i dati
+df_spese = carica_spese()
 
-xls = carica_file_excel()
-
-# Carico il foglio Spese 2025
-df_spese = pd.read_excel(xls, sheet_name="Spese 2025")
-
-# Carico il foglio Dashboard 2025 (usato per la dashboard)
-df_dash = pd.read_excel(xls, sheet_name="Dashboard 2025")
-
-st.title("Gestione Spese")
-
-# Vista spese dettagliate (mostra direttamente il foglio Spese 2025)
-st.subheader("Spese dettagliate")
+# Mostra le prime righe per controllo
+st.header("Spese - dati grezzi")
 st.dataframe(df_spese)
 
-# Vista Dashboard (usa il foglio Dashboard 2025 come dati)
-st.subheader("Dashboard")
-st.dataframe(df_dash.style.format("{:,.2f} €"))
+# Qui metti il codice per la dashboard (semplice esempio)
 
-# Grafico da df_dash (usando colonne e righe così come sono nel foglio Dashboard 2025)
-fig, ax = plt.subplots(figsize=(12, 6))
+# Supponiamo che il dataframe abbia colonne: 'Testo', 'Valore', 'Tag' (controlla tu!)
+# Creiamo una colonna 'Categoria' in base al tag (puoi modificare mappatura)
+def categoria_per_tag(tag):
+    entrate = ["stipendio", "bonus", "interessi"]
+    uscite_necessarie = ["affitto", "bollette", "spesa"]
+    uscite_variabili = ["ristorante", "shopping", "tempo libero"]
+    tag = str(tag).lower()
+    if tag in entrate:
+        return "Entrate"
+    elif tag in uscite_necessarie:
+        return "Uscite necessarie"
+    elif tag in uscite_variabili:
+        return "Uscite variabili"
+    else:
+        return "Altro"
 
-# Assumo che la prima colonna di df_dash contenga le categorie (Entrate, Uscite, etc.)
-categorie = df_dash.iloc[:, 0]
-mesi = df_dash.columns[1:]  # le colonne successive sono mesi
+df_spese['Categoria'] = df_spese['Tag'].apply(categoria_per_tag)
 
-for i, categoria in enumerate(categorie):
-    ax.plot(mesi, df_dash.iloc[i, 1:], marker='o', label=categoria)
+# Calcolo somma per categoria
+sintesi = df_spese.groupby('Categoria')['Valore'].sum()
 
-ax.set_title("Dashboard Spese")
-ax.set_ylabel("Euro")
-ax.legend()
-plt.xticks(rotation=45)
-st.pyplot(fig)
+st.header("Sintesi spese per categoria")
+st.table(sintesi)
+
+# Puoi aggiungere qui la tua logica di dashboard più complessa
+

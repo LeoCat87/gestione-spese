@@ -2,19 +2,22 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# Percorso file Excel
 EXCEL_PATH = "Spese_Leo.xlsx"
 FOGLIO_SPESE = "Spese 2025"
 
 @st.cache_data
 def carica_spese():
     df = pd.read_excel(EXCEL_PATH, sheet_name=FOGLIO_SPESE)
-    # Rimuove colonne inutili (tipo Unnamed) e vuote
-    df = df.loc[:, ~df.columns.str.contains("^Unnamed")]
-    df = df.dropna(axis=1, how="all")
-    return df
+    # Mantieni solo le colonne essenziali
+    colonne_necessarie = ["Data", "Tag", "Importo"]
+    df = df[[col for col in colonne_necessarie if col in df.columns]].copy()
 
-# Mapping tag → macrocategorie
+    # Conversioni sicure
+    df["Importo"] = pd.to_numeric(df["Importo"], errors="coerce")
+    if "Data" in df.columns:
+        df["Data"] = pd.to_datetime(df["Data"], errors="coerce")
+    return df.dropna(subset=["Importo", "Tag"])
+
 MAPPATURA = {
     "Spesa casa": ["Affitto", "Mutuo", "Condominio", "Manutenzione casa"],
     "Spesa auto": ["Carburante", "Assicurazione", "Manutenzione auto"],
@@ -29,23 +32,24 @@ def assegna_macrocategoria(tag):
             return macro
     return "Altre spese"
 
-# App principale
 st.title("Dashboard Spese Personali")
 
-spese_df = carica_spese()
+try:
+    df = carica_spese()
 
-# Verifica che le colonne fondamentali esistano
-if "Tag" in spese_df.columns and "Importo" in spese_df.columns:
-    spese_df["Macrocategoria"] = spese_df["Tag"].apply(assegna_macrocategoria)
+    # Applica macrocategoria
+    df["Macrocategoria"] = df["Tag"].apply(assegna_macrocategoria)
 
-    if "Data" in spese_df.columns:
-        spese_df["Mese"] = pd.to_datetime(spese_df["Data"], errors="coerce").dt.to_period("M")
-        totali_mese = spese_df.groupby("Mese")["Importo"].sum()
+    # Aggiungi colonna "Mese"
+    if "Data" in df.columns:
+        df["Mese"] = df["Data"].dt.to_period("M")
+        totali_mese = df.groupby("Mese")["Importo"].sum()
     else:
         totali_mese = pd.Series(dtype=float)
-        st.warning("Colonna 'Data' non trovata nel file.")
+        st.warning("Colonna 'Data' mancante o non valida.")
 
-    totali_macro = spese_df.groupby("Macrocategoria")["Importo"].sum()
+    # Totali per macrocategoria
+    totali_macro = df.groupby("Macrocategoria")["Importo"].sum()
 
     # Grafico a torta
     st.subheader("Spese per Macrocategoria")
@@ -62,8 +66,9 @@ if "Tag" in spese_df.columns and "Importo" in spese_df.columns:
         ax2.set_ylabel("Euro")
         st.pyplot(fig2)
 
-    # Tabella pulita solo con colonne rilevanti
+    # Tabella finale
     st.subheader("Dettaglio Spese")
+    st.dataframe(df[["Data", "Tag", "Importo", "Macrocategoria"]])
 
-    colonne_sicure = ["Data", "Tag", "Importo", "Macrocategoria", "Mese"]
-    colonne_pre_
+except Exception as e:
+    st.error(f"Errore durante l'e

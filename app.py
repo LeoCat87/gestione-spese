@@ -82,13 +82,19 @@ elif vista == "Dashboard":
     st.title("📈 Dashboard Mensile")
     df_dash = carica_dashboard()
 
-    # Applichiamo la formattazione in euro solo alle colonne numeriche
+    # Teniamo solo le colonne fino a "Total"
+    if "Total" in df_dash.columns:
+        col_index = df_dash.columns.get_loc("Total") + 1
+        df_dash = df_dash.iloc[:, :col_index]
+
+    # Formatta tutti i valori come euro (solo numerici)
     df_formattato = df_dash.copy()
     for col in df_formattato.columns:
         df_formattato[col] = df_formattato[col].apply(
             lambda x: formatta_euro(x) if isinstance(x, (int, float)) else x
         )
 
-    # Mostra la tabella con indice visibile (Entrate, Uscite Necessarie, ecc.)
+    # Mostra la tabella con indice (Entrate, ecc.) e senza colonne extra
     st.dataframe(df_formattato, use_container_width=True)
+
 

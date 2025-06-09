@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-EXCEL_PATH = "dati.xlsx"
+EXCEL_PATH = "Spese_Leo.xlsx"
 FOGLIO_SPESE = "Spese"
 
 @st.cache_data

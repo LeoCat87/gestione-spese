@@ -2,30 +2,32 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 
+# === CONFIGURAZIONE ===
 EXCEL_PATH = "Spese_Leo.xlsx"
-FOGLIO_SPESE = "Spese 2025"
+SHEET_NAME = "Spese 2025"
 
+# === FUNZIONE DI CARICAMENTO E RIORGANIZZAZIONE ===
 @st.cache_data
 def carica_spese():
-    # Carica il file con multi-header
-    raw_df = pd.read_excel(EXCEL_PATH, sheet_name=FOGLIO_SPESE, header=[0, 1])
-    
+    df_raw = pd.read_excel(EXCEL_PATH, sheet_name=SHEET_NAME, header=[0, 1])
     dati = []
 
-    for mese in raw_df.columns.levels[0]:
-        if mese == '' or ('Valore' not in raw_df[mese]):
+    for mese in df_raw.columns.levels[0]:
+        if mese is None or pd.isna(mese):
             continue
-        blocco = raw_df[mese][['Testo', 'Valore', 'Tag']].copy()
-        blocco.columns = ['Testo', 'Importo', 'Tag']
-        blocco['Mese'] = mese
-        dati.append(blocco)
+        try:
+            blocco = df_raw[mese][['Testo', 'Valore', 'Tag']].copy()
+            blocco.columns = ['Testo', 'Importo', 'Tag']
+            blocco["Mese"] = mese
+            dati.append(blocco)
+        except KeyError:
+            continue
 
-    df_finale = pd.concat(dati, ignore_index=True)
-    df_finale = df_finale.dropna(subset=["Importo", "Tag"])
-    df_finale = df_finale[df_finale["Importo"].apply(lambda x: isinstance(x, (int, float)))]
-    
-    return df_finale
+    df = pd.concat(dati, ignore_index=True)
+    df = df.dropna(subset=["Importo"])
+    return df
 
+# === MAPPATURA CATEGORIE ===
 MAPPATURA = {
     "Spesa casa": ["Affitto", "Mutuo", "Condominio", "Manutenzione casa"],
     "Spesa auto": ["Carburante", "Assicurazione", "Manutenzione auto"],
@@ -40,19 +42,21 @@ def assegna_macrocategoria(tag):
             return macro
     return "Altre spese"
 
+# === APP STREAMLIT ===
 st.title("Dashboard Spese Personali")
 
-df = carica_spese()
+spese_df = carica_spese()
 
-if "Tag" in df.columns and "Importo" in df.columns:
-    df["Macrocategoria"] = df["Tag"].apply(assegna_macrocategoria)
+if "Tag" in spese_df.columns and "Importo" in spese_df.columns:
+    spese_df["Macrocategoria"] = spese_df["Tag"].apply(assegna_macrocategoria)
 
-    # Totali per macrocategoria
-    totali_macro = df.groupby("Macrocategoria")["Importo"].sum()
+    # Totale per macrocategoria
+    totali_macro = spese_df.groupby("Macrocategoria")["Importo"].sum()
 
-    # Totali per mese
-    totali_mese = df.groupby("Mese")["Importo"].sum()
+    # Totale per mese
+    totali_mese = spese_df.groupby("Mese")["Importo"].sum()
 
+    # === GRAFICI ===
     st.subheader("Spese per Macrocategoria")
     fig1, ax1 = plt.subplots()
     ax1.pie(totali_macro, labels=totali_macro.index, autopct="%1.1f%%", startangle=90)
@@ -65,7 +69,9 @@ if "Tag" in df.columns and "Importo" in df.columns:
     ax2.set_ylabel("Euro")
     st.pyplot(fig2)
 
+    # === TABELLA ===
     st.subheader("Dettaglio Spese")
-    st.dataframe(df.reset_index(drop=True))
+    st.dataframe(spese_df)
+
 else:
-    st.error("Il file non contiene le colonne 'Tag' e 'Importo'.")
+    st.error("Il file Excel deve contenere almeno le colonne 'Tag' e 'Valore'.")

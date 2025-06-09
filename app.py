@@ -80,7 +80,7 @@ elif vista == "Riepilogo mensile":
 # === VISTA 3: DASHBOARD ===
 
 elif vista == "Dashboard":
-    st.title("📈 Dashboard Mensile")
+    st.title("📈 Dashboard")
     df_dash = carica_dashboard()
 
     # Teniamo solo le colonne fino a "Total"

@@ -3,7 +3,7 @@ import pandas as pd
 
 # 📁 Nome del file Excel (deve essere caricato nella repo!)
 EXCEL_PATH = "Spese_Leo.xlsx"
-FOGLIO_SPESE = "Spese"
+FOGLIO_SPESE = "Spese 2025"
 
 st.set_page_config(page_title="Gestione Spese", layout="wide")
 

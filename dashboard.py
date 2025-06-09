@@ -7,10 +7,11 @@ EXCEL_PATH = "Spese_Leo.xlsx"
 FOGLIO_SPESE = "Spese 2025"
 
 # Carica dati
-    @st.cache_data
+@st.cache_data
 def carica_spese():
     df = pd.read_excel(EXCEL_PATH, sheet_name=FOGLIO_SPESE)
-    df = df.loc[:, ~df.columns.str.contains('^Unnamed')]  # Rimuove colonne senza nome
+    # Rimuove colonne senza intestazione, come Unnamed: 13
+    df = df.loc[:, ~df.columns.str.contains("^Unnamed")]
     return df
 
 # Mapping tag → macrocategorie

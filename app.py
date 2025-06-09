@@ -88,15 +88,19 @@ elif vista == "Dashboard":
         df_dash = df_dash.iloc[:, :col_index]
 
     # Formatta tutti i valori come euro
-    df_formattato = df_dash.copy()
-    for col in df_formattato.columns:
-        df_formattato[col] = df_formattato[col].apply(
-            lambda x: formatta_euro(x) if isinstance(x, (int, float)) else x
-        )
+   # Sposta l'indice (categorie) in una colonna per mostrarlo come prima colonna visibile
+df_formattato = df_dash.copy()
+df_formattato = df_formattato.reset_index().rename(columns={"index": "Voce"})
 
-    # Mostra la tabella con indice visibile (cioè Entrate, Uscite, ecc.) ma senza numeri riga
-    st.subheader("📊 Tabella riepilogo")
-    st.dataframe(df_formattato, use_container_width=True, hide_index=True)
+# Applica la formattazione in euro a tutti i numeri
+for col in df_formattato.columns[1:]:  # Salta la colonna 'Voce'
+    df_formattato[col] = df_formattato[col].apply(
+        lambda x: formatta_euro(x) if isinstance(x, (int, float)) else x
+    )
+
+st.subheader("📊 Tabella riepilogo")
+st.dataframe(df_formattato, use_container_width=True, hide_index=True)
+
 
     # Prepara i dati per il grafico
     categorie_attese = [

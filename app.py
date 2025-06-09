@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 EXCEL_PATH = "Spese_Leo.xlsx"
 FOGLIO_SPESE = "Spese 2025"
 
-# Mappa tag → macrocategoria
+# Mappatura dei tag a macrocategorie
 MAPPATURA = {
     "Spesa casa": ["Affitto", "Mutuo", "Condominio", "Manutenzione casa"],
     "Spesa auto": ["Carburante", "Assicurazione", "Manutenzione auto"],
@@ -15,55 +15,65 @@ MAPPATURA = {
 }
 
 def assegna_macrocategoria(tag):
-    tag_normalizzato = str(tag).lower().strip()
     for macro, tags in MAPPATURA.items():
-        for t in tags:
-            if t.lower() in tag_normalizzato:
-                return macro
+        if tag in tags:
+            return macro
     return "Altre spese"
 
 @st.cache_data
 def carica_spese():
+    # Leggi il file con intestazioni multilivello (riga 1 = mese, riga 2 = campo)
     raw_df = pd.read_excel(EXCEL_PATH, sheet_name=FOGLIO_SPESE, header=[0, 1])
-    spese_lista = []
+    
+    # Pulisce i nomi di mese e campi
+    raw_df.columns = pd.MultiIndex.from_tuples([
+        (str(col[0]).strip(), str(col[1]).strip()) for col in raw_df.columns
+    ])
 
+    dati = []
     for mese in raw_df.columns.levels[0]:
-        if not all(col in raw_df[mese].columns for col in ["Testo", "Valore", "Tag"]):
-            continue  # ignora colonne incomplete
+        if mese.strip() == "" or mese == "nan":
+            continue
+        try:
+            blocco = raw_df[mese][['Testo', 'Valore', 'Tag']].copy()
+            blocco = blocco.dropna(subset=['Valore'])  # Solo spese con valore
+            blocco['Mese'] = mese
+            dati.append(blocco)
+        except KeyError:
+            continue
 
-        blocco = raw_df[mese][["Testo", "Valore", "Tag"]].dropna(how="all")
-        blocco.columns = ["Testo", "Importo", "Tag"]
-        blocco["Mese"] = mese
-        spese_lista.append(blocco)
+    if dati:
+        df = pd.concat(dati, ignore_index=True)
+        df.rename(columns={'Valore': 'Importo'}, inplace=True)
+        df['Macrocategoria'] = df['Tag'].apply(assegna_macrocategoria)
+        return df
+    else:
+        return pd.DataFrame()
 
-    df = pd.concat(spese_lista, ignore_index=True)
-    df["Macrocategoria"] = df["Tag"].apply(assegna_macrocategoria)
-    return df
-
-# App
+# App principale
 st.title("Dashboard Spese Personali")
+
 df = carica_spese()
 
-# Totali per macrocategoria
-totali_macro = df.groupby("Macrocategoria")["Importo"].sum()
+if df.empty:
+    st.error("Nessun dato caricato. Verifica il file Excel.")
+else:
+    # Grafico a torta: spese per macrocategoria
+    st.subheader("Distribuzione per Macrocategoria")
+    totali_macro = df.groupby("Macrocategoria")["Importo"].sum()
+    fig1, ax1 = plt.subplots()
+    ax1.pie(totali_macro, labels=totali_macro.index, autopct='%1.1f%%', startangle=90)
+    ax1.axis('equal')
+    st.pyplot(fig1)
 
-# Totali per mese
-totali_mese = df.groupby("Mese")["Importo"].sum()
+    # Grafico a barre: spese mensili
+    st.subheader("Spese Mensili")
+    totali_mese = df.groupby("Mese")["Importo"].sum()
+    fig2, ax2 = plt.subplots()
+    totali_mese.plot(kind="bar", ax=ax2)
+    ax2.set_ylabel("Euro")
+    st.pyplot(fig2)
 
-# Grafico torta
-st.subheader("Spese per Macrocategoria")
-fig1, ax1 = plt.subplots()
-ax1.pie(totali_macro, labels=totali_macro.index, autopct="%1.1f%%", startangle=90)
-ax1.axis("equal")
-st.pyplot(fig1)
-
-# Grafico barre
-st.subheader("Spese Mensili")
-fig2, ax2 = plt.subplots()
-totali_mese.plot(kind="bar", ax=ax2)
-ax2.set_ylabel("Euro")
-st.pyplot(fig2)
-
-# Tabella
-st.subheader("Dettaglio Spese")
-st.dataframe(df)
+    # Tabella
+    st.subheader("Dettaglio Spese")
+    st.dataframe(df)

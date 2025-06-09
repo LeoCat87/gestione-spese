@@ -31,13 +31,6 @@ def carica_riepilogo():
     df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
     return df
 
-@st.cache_data
-def carica_dashboard():
-    df = pd.read_excel(EXCEL_PATH, sheet_name="Dashboard 2025", index_col=0)
-    df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
-    df["Total"] = df["Total"].fillna(0)
-    return df
-
 def formatta_euro(val):
     return f"€ {val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
@@ -81,50 +74,38 @@ elif vista == "Riepilogo mensile":
 
 elif vista == "Dashboard":
     st.title("📈 Dashboard")
-    df_dash = carica_dashboard()
 
-    # Teniamo solo le colonne fino a "Total"
-    if "Total" in df_dash.columns:
-        col_index = df_dash.columns.get_loc("Total") + 1
-        df_dash = df_dash.iloc[:, :col_index]
+    df_spese = carica_spese()
+    df_spese["Mese"] = pd.to_datetime(df_spese["Data"]).dt.strftime("%B")
 
-    # Sposta l'indice in una colonna
-    df_formattato = df_dash.copy().reset_index().rename(columns={"index": "Voce"})
+    # Riepilogo per Categoria e Mese
+    pivot = pd.pivot_table(df_spese, values="Valore", index="Categoria", columns="Mese", aggfunc="sum", fill_value=0)
 
-    # Formatta i valori in euro
-    for col in df_formattato.columns[1:]:  # salta la colonna "Voce"
-        df_formattato[col] = df_formattato[col].apply(
-            lambda x: formatta_euro(x) if isinstance(x, (int, float)) else x
-        )
+    # Ordina mesi correttamente
+    mesi_ordine = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+                   "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"]
+    pivot = pivot.reindex(columns=[m for m in mesi_ordine if m in pivot.columns])
 
-    # Mostra la tabella
+    # Aggiunge righe Risparmio mese e Risparmio cumulato
+    pivot.loc["Risparmio mese"] = pivot.loc["Entrate"] - pivot.loc["Uscite necessarie"] - pivot.loc["Uscite variabili"]
+    pivot.loc["Risparmio cumulato"] = pivot.loc["Risparmio mese"].cumsum()
+    pivot["Total"] = pivot.sum(axis=1)
+
+    # Tabella formattata
+    df_formattato = pivot.applymap(formatta_euro)
     st.subheader("📊 Tabella riepilogo")
-    st.dataframe(df_formattato, use_container_width=True, hide_index=True)
+    st.dataframe(df_formattato, use_container_width=True)
 
-    # Prepara il grafico
-    categorie_attese = [
-        "Entrate",
-        "Uscite necessarie",
-        "Uscite variabili",
-        "Risparmio mese",
-        "Risparmio cumulato"
-    ]
+    # Grafico
+    st.subheader("📊 Andamento mensile per categoria")
+    categorie_plot = ["Entrate", "Uscite necessarie", "Uscite variabili", "Risparmio mese", "Risparmio cumulato"]
+    df_valori = pivot.loc[categorie_plot].drop(columns=["Total"], errors="ignore").transpose()
 
-    categorie_presenti = [cat for cat in categorie_attese if cat in df_dash.index]
-
-    if not categorie_presenti:
-        st.warning("⚠️ Nessuna delle categorie previste è presente nel foglio 'Dashboard'.")
-    else:
-        df_valori = df_dash.drop(columns=["Total"])
-        df_valori = df_valori.loc[categorie_presenti]
-        df_valori = df_valori.transpose()  # mesi come righe
-
-        st.subheader("📊 Andamento mensile per categoria")
-        fig, ax = plt.subplots(figsize=(12, 6))
-        df_valori.plot(kind="bar", ax=ax)
-        ax.set_ylabel("Importo (€)")
-        ax.set_xlabel("Mese")
-        ax.set_title("Entrate, Uscite e Risparmi per mese")
-        ax.legend(title="Categoria")
-        plt.xticks(rotation=45)
-        st.pyplot(fig)
+    fig, ax = plt.subplots(figsize=(12, 6))
+    df_valori.plot(kind="bar", ax=ax)
+    ax.set_ylabel("Importo (€)")
+    ax.set_xlabel("Mese")
+    ax.set_title("Entrate, Uscite e Risparmi per mese")
+    ax.legend(title="Categoria")
+    plt.xticks(rotation=45)
+    st.pyplot(fig)

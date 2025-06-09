@@ -87,14 +87,38 @@ elif vista == "Dashboard":
         col_index = df_dash.columns.get_loc("Total") + 1
         df_dash = df_dash.iloc[:, :col_index]
 
-    # Formatta tutti i valori come euro (solo numerici)
+    # Formatta tutti i valori come euro
     df_formattato = df_dash.copy()
     for col in df_formattato.columns:
         df_formattato[col] = df_formattato[col].apply(
             lambda x: formatta_euro(x) if isinstance(x, (int, float)) else x
         )
 
-    # Mostra la tabella con indice (Entrate, ecc.) e senza colonne extra
-    st.dataframe(df_formattato, use_container_width=True)
+    # Mostra la tabella senza numeri di riga
+    st.subheader("📊 Tabella riepilogo")
+    st.dataframe(df_formattato.reset_index(drop=True), use_container_width=True)
 
+    # Prepara i dati per il grafico
+    categorie = [
+        "Entrate",
+        "Uscite Necessarie",
+        "Uscite Variabili",
+        "Risparmio mensile",
+        "Risparmio cumulato"
+    ]
+    df_valori = df_dash.drop(columns=["Total"])
+    df_valori = df_valori.loc[categorie]
+    df_valori = df_valori.transpose()  # mesi come righe
 
+    # Grafico a barre
+    st.subheader("📊 Andamento mensile per categoria")
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(figsize=(12, 6))
+    df_valori.plot(kind="bar", ax=ax)
+    ax.set_ylabel("Importo (€)")
+    ax.set_xlabel("Mese")
+    ax.set_title("Entrate, Uscite e Risparmi per mese")
+    ax.legend(title="Categoria")
+    plt.xticks(rotation=45)
+    st.pyplot(fig)

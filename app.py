@@ -1,8 +1,15 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import gdown
+import os
 
+FILE_ID = "1PJ9TCcq4iBHeg8CpC1KWss0UWSg86BJn"
 EXCEL_PATH = "Spese_Leo.xlsx"
+
+if not os.path.exists(EXCEL_PATH):
+    url = f"https://drive.google.com/uc?id={FILE_ID}"
+    gdown.download(url, EXCEL_PATH, quiet=False)
 
 # === FUNZIONI DI CARICAMENTO ===
 

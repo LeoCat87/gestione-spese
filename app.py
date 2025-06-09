@@ -81,50 +81,66 @@ elif vista == "Riepilogo mensile":
 
 elif vista == "Dashboard":
     st.title("📈 Dashboard")
-    df_dash = carica_dashboard()
 
-    # Teniamo solo le colonne fino a "Total"
-    if "Total" in df_dash.columns:
-        col_index = df_dash.columns.get_loc("Total") + 1
-        df_dash = df_dash.iloc[:, :col_index]
+    df_spese = carica_spese()
 
-    # Sposta l'indice in una colonna
-    df_formattato = df_dash.copy().reset_index().rename(columns={"index": "Voce"})
+    # Usa il nome dei mesi come colonna
+    mesi = [col for col in pd.read_excel(EXCEL_PATH, sheet_name="Spese 2025", header=0).columns if col not in df_spese.columns]
+    if not mesi:
+        mesi = df_spese["Mese"].unique() if "Mese" in df_spese else []
 
-    # Formatta i valori in euro
-    for col in df_formattato.columns[1:]:  # salta la colonna "Voce"
-        df_formattato[col] = df_formattato[col].apply(
-            lambda x: formatta_euro(x) if isinstance(x, (int, float)) else x
-        )
+    # Ricrea una colonna "Mese" basata sul layout del file
+    df_raw = pd.read_excel(EXCEL_PATH, sheet_name="Spese 2025", header=[1])
+    df_raw = df_raw.loc[:, ~df_raw.columns.str.contains('^Unnamed')]
+    mesi_riga = pd.read_excel(EXCEL_PATH, sheet_name="Spese 2025", header=None).iloc[0]
+    mesi_validi = mesi_riga.dropna().values
 
-    # Mostra la tabella
+    df_raw["Mese"] = mesi_riga[df_raw.columns.get_loc("Descrizione")]  # o colonna con valori
+
+    df = df_raw.copy()
+    df = df.dropna(subset=["Valore", "Tag"])
+    df["Valore"] = pd.to_numeric(df["Valore"], errors="coerce").fillna(0)
+
+    def categoria_per_tag(tag):
+        if tag in ["Stipendio", "Entrate extra"]:
+            return "Entrate"
+        elif tag in ["Affitto", "Bollette", "Spesa", "Abbonamenti", "Trasporti", "Assicurazione"]:
+            return "Uscite necessarie"
+        else:
+            return "Uscite variabili"
+
+    df["Categoria"] = df["Tag"].apply(categoria_per_tag)
+    df["Mese"] = mesi_riga[1]  # assegna il mese dalla prima riga
+
+    # Calcola aggregati
+    pivot = df.pivot_table(values="Valore", index="Categoria", columns="Mese", aggfunc="sum").fillna(0)
+
+    # Aggiunge righe per risparmi
+    if "Entrate" not in pivot.index:
+        pivot.loc["Entrate"] = 0
+    uscite_tot = pivot.get("Uscite necessarie", 0) + pivot.get("Uscite variabili", 0)
+    risparmio_mensile = pivot.loc["Entrate"] - uscite_tot
+    pivot.loc["Risparmio mese"] = risparmio_mensile
+    pivot.loc["Risparmio cumulato"] = risparmio_mensile.cumsum()
+
+    pivot["Total"] = pivot.sum(axis=1)
+    df_dash = pivot.reset_index().rename(columns={"index": "Voce"})
+
+    # Formatta
+    for col in df_dash.columns[1:]:
+        df_dash[col] = df_dash[col].apply(lambda x: formatta_euro(x) if isinstance(x, (int, float)) else x)
+
     st.subheader("📊 Tabella riepilogo")
-    st.dataframe(df_formattato, use_container_width=True, hide_index=True)
+    st.dataframe(df_dash, use_container_width=True, hide_index=True)
 
-    # Prepara il grafico
-    categorie_attese = [
-        "Entrate",
-        "Uscite necessarie",
-        "Uscite variabili",
-        "Risparmio mese",
-        "Risparmio cumulato"
-    ]
-
-    categorie_presenti = [cat for cat in categorie_attese if cat in df_dash.index]
-
-    if not categorie_presenti:
-        st.warning("⚠️ Nessuna delle categorie previste è presente nel foglio 'Dashboard'.")
-    else:
-        df_valori = df_dash.drop(columns=["Total"])
-        df_valori = df_valori.loc[categorie_presenti]
-        df_valori = df_valori.transpose()  # mesi come righe
-
-        st.subheader("📊 Andamento mensile per categoria")
-        fig, ax = plt.subplots(figsize=(12, 6))
-        df_valori.plot(kind="bar", ax=ax)
-        ax.set_ylabel("Importo (€)")
-        ax.set_xlabel("Mese")
-        ax.set_title("Entrate, Uscite e Risparmi per mese")
-        ax.legend(title="Categoria")
-        plt.xticks(rotation=45)
-        st.pyplot(fig)
+    # Grafico
+    st.subheader("📊 Andamento mensile per categoria")
+    df_valori = pivot.loc[["Entrate", "Uscite necessarie", "Uscite variabili", "Risparmio mese", "Risparmio cumulato"]].transpose()
+    fig, ax = plt.subplots(figsize=(12, 6))
+    df_valori.plot(kind="bar", ax=ax)
+    ax.set_ylabel("Importo (€)")
+    ax.set_xlabel("Mese")
+    ax.set_title("Entrate, Uscite e Risparmi per mese")
+    ax.legend(title="Categoria")
+    plt.xticks(rotation=45)
+    st.pyplot(fig)

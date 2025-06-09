@@ -17,9 +17,9 @@ def carica_spese():
         if tag in ["Stipendio", "Entrate extra"]:
             return "Entrate"
         elif tag in ["Affitto", "Bollette", "Spesa", "Abbonamenti", "Trasporti", "Assicurazione"]:
-            return "Uscite Necessarie"
+            return "Uscite necessarie"
         else:
-            return "Uscite Variabili"
+            return "Uscite variabili"
 
     df["Categoria"] = df["Tag"].apply(categoria_per_tag)
     return df
@@ -101,9 +101,9 @@ elif vista == "Dashboard":
     # Prepara i dati per il grafico
     categorie_attese = [
         "Entrate",
-        "Uscite Necessarie",
-        "Uscite Variabili",
-        "Risparmio mensile",
+        "Uscite necessarie",
+        "Uscite variabili",
+        "Risparmio mese",
         "Risparmio cumulato"
     ]
 

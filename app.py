@@ -2,20 +2,16 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import gdown
+import os
 
+# === CONFIGURAZIONE STREAMLIT ===
 st.set_page_config(page_title="Gestione Spese", layout="wide")
 
-# === CONFIGURAZIONE ===
-GDRIVE_FILE_ID = "1PJ9TCcq4iBHeg8CpC1KWss0UWSg86BJn"
+# === SCARICA FILE EXCEL DA GOOGLE DRIVE ===
+FILE_ID = "1PJ9TCcq4iBHeg8CpC1KWss0UWSg86BJn"
 EXCEL_PATH = "Spese_Leo.xlsx"
-
-# Scarica il file Excel da Google Drive
-@st.cache_data
-def scarica_excel_da_drive():
-    url = f"https://drive.google.com/uc?id={GDRIVE_FILE_ID}"
-    gdown.download(url, EXCEL_PATH, quiet=True)
-
-scarica_excel_da_drive()
+if not os.path.exists(EXCEL_PATH):
+    gdown.download(f"https://drive.google.com/uc?id={FILE_ID}", EXCEL_PATH, quiet=False)
 
 # === FUNZIONI DI CARICAMENTO ===
 
@@ -44,23 +40,29 @@ def carica_riepilogo():
     df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
     return df
 
-@st.cache_data
-def carica_dashboard():
-    df = pd.read_excel(EXCEL_PATH, sheet_name="Dashboard 2025", index_col=0)
-    df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
-    df["Total"] = df["Total"].fillna(0)
-    return df
+# === CALCOLO DASHBOARD AUTOMATICO ===
+def calcola_dashboard(df_spese):
+    mesi = [col for col in df_spese.columns if col not in ["Testo", "Valore", "Tag", "Categoria"]]
+    df_spese = df_spese.copy()
+    df_spese = df_spese[["Testo", "Valore", "Tag", "Categoria"]]
+
+    pivot = df_spese.groupby(["Categoria"]).pivot_table(values="Valore", index="Categoria", columns=df_spese.index.map(lambda i: mesi[i % len(mesi)]), aggfunc="sum")
+    pivot = pivot.fillna(0)
+
+    pivot.loc["Risparmio mese"] = pivot.loc["Entrate"] - pivot.loc["Uscite necessarie"] - pivot.loc["Uscite variabili"]
+    pivot.loc["Risparmio cumulato"] = pivot.loc["Risparmio mese"].cumsum()
+
+    pivot["Total"] = pivot.sum(axis=1)
+    return pivot
 
 def formatta_euro(val):
     return f"€ {val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 # === INTERFACCIA ===
-
 st.sidebar.title("📁 Navigazione")
 vista = st.sidebar.radio("Scegli una vista:", ["Spese dettagliate", "Riepilogo mensile", "Dashboard"])
 
 # === VISTA 1: SPESE DETTAGLIATE ===
-
 if vista == "Spese dettagliate":
     st.title("📌 Spese Dettagliate")
     df_spese = carica_spese()
@@ -78,10 +80,10 @@ if vista == "Spese dettagliate":
         df_filtrato = df_filtrato[df_filtrato["Tag"] == tag_sel]
 
     df_filtrato["Valore"] = df_filtrato["Valore"].map(formatta_euro)
+
     st.dataframe(df_filtrato.drop(columns=["Categoria"]), use_container_width=True)
 
-# === VISTA 2: RIEPILOGO MENSILE ===
-
+# === VISTA 2: RIEPILOGO MENSILE (MANTENUTA PER FUTURO) ===
 elif vista == "Riepilogo mensile":
     st.title("📊 Riepilogo Mensile per Tag")
     df_riepilogo = carica_riepilogo()
@@ -89,21 +91,14 @@ elif vista == "Riepilogo mensile":
     st.dataframe(df_formattato, use_container_width=True, hide_index=True)
 
 # === VISTA 3: DASHBOARD ===
-
 elif vista == "Dashboard":
     st.title("📈 Dashboard")
-    df_dash = carica_dashboard()
-
-    if "Total" in df_dash.columns:
-        col_index = df_dash.columns.get_loc("Total") + 1
-        df_dash = df_dash.iloc[:, :col_index]
+    df_spese = carica_spese()
+    df_dash = calcola_dashboard(df_spese)
 
     df_formattato = df_dash.copy().reset_index().rename(columns={"index": "Voce"})
-
-    for col in df_formattato.columns[1:]:  # salta la colonna "Voce"
-        df_formattato[col] = df_formattato[col].apply(
-            lambda x: formatta_euro(x) if isinstance(x, (int, float)) else x
-        )
+    for col in df_formattato.columns[1:]:
+        df_formattato[col] = df_formattato[col].apply(lambda x: formatta_euro(x) if isinstance(x, (int, float)) else x)
 
     st.subheader("📊 Tabella riepilogo")
     st.dataframe(df_formattato, use_container_width=True, hide_index=True)
@@ -115,13 +110,12 @@ elif vista == "Dashboard":
         "Risparmio mese",
         "Risparmio cumulato"
     ]
-    categorie_presenti = [cat for cat in categorie_attese if cat in df_dash.index]
 
+    categorie_presenti = [cat for cat in categorie_attese if cat in df_dash.index]
     if not categorie_presenti:
-        st.warning("⚠️ Nessuna delle categorie previste è presente nel foglio 'Dashboard'.")
+        st.warning("⚠️ Nessuna delle categorie previste è presente nei dati calcolati dalla dashboard.")
     else:
-        df_valori = df_dash.drop(columns=["Total"])
-        df_valori = df_valori.loc[categorie_presenti]
+        df_valori = df_dash.loc[categorie_presenti].drop(columns=["Total"])
         df_valori = df_valori.transpose()
 
         st.subheader("📊 Andamento mensile per categoria")

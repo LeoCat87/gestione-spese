@@ -46,7 +46,7 @@ def calcola_dashboard(df_spese):
     df_spese = df_spese.copy()
     df_spese = df_spese[["Testo", "Valore", "Tag", "Categoria"]]
 
-    pivot = df_spese.groupby(["Categoria"]).pivot_table(values="Valore", index="Categoria", columns=df_spese.index.map(lambda i: mesi[i % len(mesi)]), aggfunc="sum")
+    pivot = pd.pivot_table(df_spese, values="Valore", index="Categoria", columns="Mese", aggfunc="sum", fill_value=0)
     pivot = pivot.fillna(0)
 
     pivot.loc["Risparmio mese"] = pivot.loc["Entrate"] - pivot.loc["Uscite necessarie"] - pivot.loc["Uscite variabili"]

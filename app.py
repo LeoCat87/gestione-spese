@@ -23,30 +23,42 @@ def carica_spese():
     file = carica_file_drive()
     df_raw = pd.read_excel(file, sheet_name="Spese 2025", header=None)
 
-    mesi = df_raw.iloc[0, 1:].tolist()
-    dati = df_raw.iloc[1:, :]
+    # Estrai i nomi dei mesi dalla prima riga, escludendo la prima colonna ("Testo")
+    raw_mesi = df_raw.iloc[0, 1:]
+    num_colonne_mese = 2  # ogni mese ha 2 colonne: Valore e Tag
+    num_blocchi = (raw_mesi.shape[0]) // num_colonne_mese
+    mesi = raw_mesi[::2].tolist()  # Prendo solo i nomi dei mesi (colonne Valore)
+
+    dati = df_raw.iloc[1:, :]  # escludo la riga intestazione mesi
 
     df_lista = []
 
-    for i, mese in enumerate(mesi):
-        blocco = dati.iloc[:, [0, i + 1, i + 2]].copy()
-        blocco.columns = ["Testo", "Valore", "Tag"]
-        blocco["Mese"] = mese
-        df_lista.append(blocco)
+    for i in range(num_blocchi):
+        try:
+            blocco = dati.iloc[:, [0, 1 + i * 2, 2 + i * 2]].copy()
+            blocco.columns = ["Testo", "Valore", "Tag"]
+            blocco["Mese"] = mesi[i]
+            df_lista.append(blocco)
+        except IndexError:
+            # In caso di colonne mancanti (incomplete) ignoro il blocco
+            continue
 
     df = pd.concat(df_lista, ignore_index=True)
     df.dropna(subset=["Valore", "Tag"], inplace=True)
 
     def categoria_per_tag(tag):
-        if str(tag).lower() in ["stipendio", "bonus"]:
+        tag_str = str(tag).lower()
+        if tag_str in ["stipendio", "bonus"]:
             return "Entrate"
-        elif str(tag).lower() in ["affitto", "bollette", "spesa"]:
+        elif tag_str in ["affitto", "bollette", "spesa"]:
             return "Uscite necessarie"
         else:
             return "Uscite variabili"
 
     df["Categoria"] = df["Tag"].apply(categoria_per_tag)
+
     return df
+
 
 # Calcolo della dashboard
 def calcola_dashboard(df_spese):

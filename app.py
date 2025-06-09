@@ -62,13 +62,43 @@ def carica_spese():
 
 # Calcolo della dashboard
 def calcola_dashboard(df_spese):
-    pivot = pd.pivot_table(df_spese, values="Valore", index="Categoria", columns="Mese", aggfunc="sum", fill_value=0)
+    # Pivot table: somma dei valori per Categoria e Mese
+    pivot = pd.pivot_table(
+        df_spese,
+        values="Valore",
+        index="Categoria",
+        columns="Mese",
+        aggfunc="sum",
+        fill_value=0
+    )
 
-    pivot.loc["Uscite"] = pivot.loc.get("Uscite necessarie", 0) + pivot.loc.get("Uscite variabili", 0)
-    pivot.loc["Risparmio mese"] = pivot.loc.get("Entrate", 0) - pivot.loc["Uscite"]
-    pivot.loc["Risparmio cumulato"] = pivot.loc["Risparmio mese"].cumsum(axis=1)
-    pivot["Total"] = pivot.sum(axis=1)
+    # Assicuro che le categorie fondamentali esistano (altrimenti le creo con zeri)
+    for cat in ["Entrate", "Uscite necessarie", "Uscite variabili"]:
+        if cat not in pivot.index:
+            pivot.loc[cat] = 0
+
+    # Calcolo le Uscite come somma di Uscite necessarie e variabili
+    pivot.loc["Uscite"] = pivot.loc["Uscite necessarie"] + pivot.loc["Uscite variabili"]
+
+    # Calcolo il Risparmio mese (Entrate - Uscite)
+    pivot.loc["Risparmio mese"] = pivot.loc["Entrate"] - pivot.loc["Uscite"]
+
+    # Calcolo il Risparmio cumulato come somma progressiva del Risparmio mese
+    pivot.loc["Risparmio cumulato"] = pivot.loc["Risparmio mese"].cumsum()
+
+    # Riordino le righe secondo l’ordine desiderato
+    ordine = [
+        "Entrate",
+        "Uscite necessarie",
+        "Uscite variabili",
+        "Uscite",
+        "Risparmio mese",
+        "Risparmio cumulato"
+    ]
+    pivot = pivot.reindex(ordine)
+
     return pivot
+
 
 # Avvio app
 df_spese = carica_spese()

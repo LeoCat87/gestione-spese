@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
 
 EXCEL_PATH = "Spese_Leo.xlsx"
 
@@ -87,22 +88,20 @@ elif vista == "Dashboard":
         col_index = df_dash.columns.get_loc("Total") + 1
         df_dash = df_dash.iloc[:, :col_index]
 
-    # Formatta tutti i valori come euro
-   # Sposta l'indice (categorie) in una colonna per mostrarlo come prima colonna visibile
-df_formattato = df_dash.copy()
-df_formattato = df_formattato.reset_index().rename(columns={"index": "Voce"})
+    # Sposta l'indice in una colonna
+    df_formattato = df_dash.copy().reset_index().rename(columns={"index": "Voce"})
 
-# Applica la formattazione in euro a tutti i numeri
-for col in df_formattato.columns[1:]:  # Salta la colonna 'Voce'
-    df_formattato[col] = df_formattato[col].apply(
-        lambda x: formatta_euro(x) if isinstance(x, (int, float)) else x
-    )
+    # Formatta i valori in euro
+    for col in df_formattato.columns[1:]:  # salta la colonna "Voce"
+        df_formattato[col] = df_formattato[col].apply(
+            lambda x: formatta_euro(x) if isinstance(x, (int, float)) else x
+        )
 
-st.subheader("📊 Tabella riepilogo")
-st.dataframe(df_formattato, use_container_width=True, hide_index=True)
+    # Mostra la tabella
+    st.subheader("📊 Tabella riepilogo")
+    st.dataframe(df_formattato, use_container_width=True, hide_index=True)
 
-
-    # Prepara i dati per il grafico
+    # Prepara il grafico
     categorie_attese = [
         "Entrate",
         "Uscite necessarie",
@@ -120,10 +119,7 @@ st.dataframe(df_formattato, use_container_width=True, hide_index=True)
         df_valori = df_valori.loc[categorie_presenti]
         df_valori = df_valori.transpose()  # mesi come righe
 
-        # Grafico a barre
         st.subheader("📊 Andamento mensile per categoria")
-        import matplotlib.pyplot as plt
-
         fig, ax = plt.subplots(figsize=(12, 6))
         df_valori.plot(kind="bar", ax=ax)
         ax.set_ylabel("Importo (€)")

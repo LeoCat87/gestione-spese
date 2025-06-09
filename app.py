@@ -81,5 +81,14 @@ elif vista == "Riepilogo mensile":
 elif vista == "Dashboard":
     st.title("📈 Dashboard Mensile")
     df_dash = carica_dashboard()
-    df_formattato = df_dash.applymap(lambda x: formatta_euro(x) if isinstance(x, (int, float)) else x)
-    st.dataframe(df_formattato, use_container_width=True, hide_index=True)
+
+    # Applichiamo la formattazione in euro solo alle colonne numeriche
+    df_formattato = df_dash.copy()
+    for col in df_formattato.columns:
+        df_formattato[col] = df_formattato[col].apply(
+            lambda x: formatta_euro(x) if isinstance(x, (int, float)) else x
+        )
+
+    # Mostra la tabella con indice visibile (Entrate, Uscite Necessarie, ecc.)
+    st.dataframe(df_formattato, use_container_width=True)
+

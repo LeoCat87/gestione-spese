@@ -94,31 +94,37 @@ elif vista == "Dashboard":
             lambda x: formatta_euro(x) if isinstance(x, (int, float)) else x
         )
 
-    # Mostra la tabella senza numeri di riga
+    # Mostra la tabella con indice visibile (cioè Entrate, Uscite, ecc.) ma senza numeri riga
     st.subheader("📊 Tabella riepilogo")
-    st.dataframe(df_formattato.reset_index(drop=True), use_container_width=True)
+    st.dataframe(df_formattato, use_container_width=True, hide_index=True)
 
     # Prepara i dati per il grafico
-    categorie = [
+    categorie_attese = [
         "Entrate",
         "Uscite Necessarie",
         "Uscite Variabili",
         "Risparmio mensile",
         "Risparmio cumulato"
     ]
-    df_valori = df_dash.drop(columns=["Total"])
-    df_valori = df_valori.loc[categorie]
-    df_valori = df_valori.transpose()  # mesi come righe
 
-    # Grafico a barre
-    st.subheader("📊 Andamento mensile per categoria")
-    import matplotlib.pyplot as plt
+    categorie_presenti = [cat for cat in categorie_attese if cat in df_dash.index]
 
-    fig, ax = plt.subplots(figsize=(12, 6))
-    df_valori.plot(kind="bar", ax=ax)
-    ax.set_ylabel("Importo (€)")
-    ax.set_xlabel("Mese")
-    ax.set_title("Entrate, Uscite e Risparmi per mese")
-    ax.legend(title="Categoria")
-    plt.xticks(rotation=45)
-    st.pyplot(fig)
+    if not categorie_presenti:
+        st.warning("⚠️ Nessuna delle categorie previste è presente nel foglio 'Dashboard'.")
+    else:
+        df_valori = df_dash.drop(columns=["Total"])
+        df_valori = df_valori.loc[categorie_presenti]
+        df_valori = df_valori.transpose()  # mesi come righe
+
+        # Grafico a barre
+        st.subheader("📊 Andamento mensile per categoria")
+        import matplotlib.pyplot as plt
+
+        fig, ax = plt.subplots(figsize=(12, 6))
+        df_valori.plot(kind="bar", ax=ax)
+        ax.set_ylabel("Importo (€)")
+        ax.set_xlabel("Mese")
+        ax.set_title("Entrate, Uscite e Risparmi per mese")
+        ax.legend(title="Categoria")
+        plt.xticks(rotation=45)
+        st.pyplot(fig)

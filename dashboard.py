@@ -33,14 +33,13 @@ st.title("Dashboard Spese Personali")
 
 spese_df = carica_spese()
 
-# Pre-elabora dati
 if "Tag" in spese_df.columns and "Importo" in spese_df.columns:
     spese_df["Macrocategoria"] = spese_df["Tag"].apply(assegna_macrocategoria)
 
-    # Totali per macrocategoria
+    # Totale per macrocategoria
     totali_macro = spese_df.groupby("Macrocategoria")["Importo"].sum()
 
-    # Totali per mese
+    # Totale per mese
     if "Data" in spese_df.columns:
         spese_df["Mese"] = pd.to_datetime(spese_df["Data"]).dt.to_period("M")
         totali_mese = spese_df.groupby("Mese")["Importo"].sum()
@@ -65,6 +64,11 @@ if "Tag" in spese_df.columns and "Importo" in spese_df.columns:
 
     # Tabella riepilogativa
     st.subheader("Dettaglio Spese")
+    # Forza la conversione di colonne object a stringa per evitare errori Arrow
+    for col in spese_df.columns:
+        if spese_df[col].dtype == 'object':
+            spese_df[col] = spese_df[col].astype(str)
+
     st.dataframe(spese_df)
 
 else:

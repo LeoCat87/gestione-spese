@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 # Percorso file Excel
 EXCEL_PATH = "Spese_Leo.xlsx"
-FOGLIO_SPESE = "Spese"
+FOGLIO_SPESE = "Spese 2025"
 
 # Carica dati
 @st.cache_data

@@ -7,27 +7,25 @@ FOGLIO_SPESE = "Spese"
 
 @st.cache_data
 def carica_spese():
-    # Carica i dati
+    # Carica il file con multi-header
     raw_df = pd.read_excel(EXCEL_PATH, sheet_name=FOGLIO_SPESE, header=[0, 1])
     
-    # Riorganizza i dati
-    mesi = raw_df.columns.levels[0]
     dati = []
 
-    for mese in mesi:
-        if mese not in raw_df.columns:
+    for mese in raw_df.columns.levels[0]:
+        if mese == '' or ('Valore' not in raw_df[mese]):
             continue
-        blocco = raw_df[mese]
-        blocco = blocco.dropna(how='all')  # rimuove righe completamente vuote
-        blocco = blocco.rename(columns={"Testo": "Testo", "Valore": "Importo", "Tag": "Tag"})
-        blocco["Mese"] = mese
+        blocco = raw_df[mese][['Testo', 'Valore', 'Tag']].copy()
+        blocco.columns = ['Testo', 'Importo', 'Tag']
+        blocco['Mese'] = mese
         dati.append(blocco)
 
     df_finale = pd.concat(dati, ignore_index=True)
     df_finale = df_finale.dropna(subset=["Importo", "Tag"])
+    df_finale = df_finale[df_finale["Importo"].apply(lambda x: isinstance(x, (int, float)))]
+    
     return df_finale
 
-# Mappa tag a macrocategorie
 MAPPATURA = {
     "Spesa casa": ["Affitto", "Mutuo", "Condominio", "Manutenzione casa"],
     "Spesa auto": ["Carburante", "Assicurazione", "Manutenzione auto"],
@@ -42,7 +40,6 @@ def assegna_macrocategoria(tag):
             return macro
     return "Altre spese"
 
-# App Streamlit
 st.title("Dashboard Spese Personali")
 
 df = carica_spese()
@@ -69,6 +66,6 @@ if "Tag" in df.columns and "Importo" in df.columns:
     st.pyplot(fig2)
 
     st.subheader("Dettaglio Spese")
-    st.dataframe(df)
+    st.dataframe(df.reset_index(drop=True))
 else:
-    st.error("Il file non contiene colonne 'Tag' e 'Importo'.")
+    st.error("Il file non contiene le colonne 'Tag' e 'Importo'.")

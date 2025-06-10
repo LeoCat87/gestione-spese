@@ -58,25 +58,30 @@ if vista == "Spese dettagliate":
     # === VISUALIZZARE E MODIFICARE I DATI ===
     st.subheader("📅 Modifica le Spese")
 
-    # Mostra i dati originali come sono nel file Excel
+    # Mostra i dati originali
     st.write("Dati originali caricati:")
     st.dataframe(df_spese, use_container_width=True)
 
     # Crea una copia modificabile dei dati
     edited_df = df_spese.copy()
 
+    # Lista dei tag che ci aspettiamo
+    tag_options = ["Stipendio", "Affitto", "Spesa", "Bollette", "Trasporti", "Assicurazione", "Generiche"]
+
     # Permetti la modifica dei dati (Valore e Tag)
     for index, row in edited_df.iterrows():
         # Permetti di modificare il valore
         new_value = st.number_input(f"Modifica il valore per {row['Tag']} (riga {index + 1})", 
                                    value=row['Valore'], key=f"valore_{index}")
-        # Permetti di modificare il tag
-        new_tag = st.selectbox(f"Seleziona un tag per {row['Tag']} (riga {index + 1})",
-                               options=["Stipendio", "Affitto", "Spesa", "Bollette", "Trasporti", 
-                                        "Assicurazione", "Generiche"], index=["Stipendio", "Affitto", 
-                                        "Spesa", "Bollette", "Trasporti", "Assicurazione", 
-                                        "Generiche"].index(row['Tag']), key=f"tag_{index}")
         
+        # Verifica che il valore esista nelle opzioni dei tag
+        if row['Tag'] in tag_options:
+            new_tag = st.selectbox(f"Seleziona un tag per {row['Tag']} (riga {index + 1})",
+                                   options=tag_options, index=tag_options.index(row['Tag']), key=f"tag_{index}")
+        else:
+            new_tag = st.selectbox(f"Seleziona un tag per {row['Tag']} (riga {index + 1})",
+                                   options=tag_options, index=0, key=f"tag_{index}")  # Opzione predefinita
+
         # Aggiorna i dati modificati nel dataframe
         edited_df.at[index, 'Valore'] = new_value
         edited_df.at[index, 'Tag'] = new_tag

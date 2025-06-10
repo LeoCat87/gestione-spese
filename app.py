@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 import gdown
+import matplotlib.pyplot as plt
 from io import BytesIO
 
 st.set_page_config(page_title="Gestione Spese", layout="wide")
@@ -55,21 +55,23 @@ vista = st.sidebar.radio("Scegli una vista:", ["Spese dettagliate", "Riepilogo m
 if vista == "Spese dettagliate":
     st.title("📌 Spese 2025")
 
+    # Carica i dati dal file Excel
     df_spese = carica_spese()
 
     # === VISUALIZZARE E MODIFICARE I DATI ===
     st.subheader("📅 Modifica le Spese")
 
-    # Mostra i dati nella tabella, inclusi i valori e le intestazioni corretti
-    # Creiamo una versione modificabile della tabella
+    # Mostra i dati originali
+    st.write("Dati originali caricati:")
+    st.dataframe(df_spese, use_container_width=True)
+
+    # Crea una copia modificabile dei dati
     edited_df = df_spese.copy()
 
-    # Mostra la tabella con i valori originali
+    # Permetti la modifica dei dati (Valore e Tag)
     for index, row in edited_df.iterrows():
-        # Permetti di modificare il valore
         new_value = st.number_input(f"Modifica il valore per {row['Tag']} (riga {index + 1})", 
                                    value=row['Valore'], key=f"valore_{index}")
-        # Permetti di modificare il tag
         new_tag = st.selectbox(f"Seleziona un tag per {row['Tag']} (riga {index + 1})",
                                options=["Stipendio", "Affitto", "Spesa", "Bollette", "Trasporti", 
                                         "Assicurazione", "Generiche"], index=["Stipendio", "Affitto", 
@@ -80,7 +82,8 @@ if vista == "Spese dettagliate":
         edited_df.at[index, 'Valore'] = new_value
         edited_df.at[index, 'Tag'] = new_tag
 
-    # === VISUALIZZARE LA TABELLA MODIFICATA ===
+    # Mostra la tabella modificata
+    st.write("Tabella modificata:")
     edited_df["Valore"] = edited_df["Valore"].map(formatta_euro)
     st.dataframe(edited_df, use_container_width=True)
 

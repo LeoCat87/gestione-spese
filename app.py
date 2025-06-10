@@ -77,7 +77,9 @@ if vista == "Spese dettagliate":
         new_columns.append(f"{mese}_Tag")
 
     # Riorganizza il dataframe in modo che ogni mese abbia le colonne Testo, Valore, Tag
-    edited_df.columns = ["Testo", "Tag"] + new_columns
+    # La prima colonna è 'Testo' e 'Tag', poi le colonne per ogni mese (Testo, Valore, Tag)
+    edited_df = pd.concat([df_spese[["Testo", "Tag"]], df_spese[mesi]], axis=1)
+    edited_df.columns = ["Testo", "Tag"] + new_columns  # Cambia le intestazioni delle colonne
 
     # Usa st.data_editor per permettere la modifica della tabella (compreso il Tag tramite il menu a tendina)
     edited_df = st.data_editor(

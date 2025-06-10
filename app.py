@@ -96,7 +96,7 @@ elif vista == "Dashboard":
 
     # === Mappa tag a macrocategorie ===
     mappa_macrocategorie = {
-        "Entrate": ["Stipendio", "Affitto Savoldo 4", "generico"],
+        "Entrate": ["Stipendio", "Affitto Savoldo 4 + generico"],
         "Uscite necessarie": [
             "PAC Investimenti", "Donazioni (StC, Unicef, Greenpeace)", "Mutuo", "Luce&Gas",
             "Internet/Telefono", "Mezzi", "Spese condominiali", "Spese comuni",

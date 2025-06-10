@@ -76,10 +76,15 @@ if vista == "Spese dettagliate":
         new_columns.append(f"{mese}_Valore")
         new_columns.append(f"{mese}_Tag")
 
-    # Riorganizza il dataframe in modo che ogni mese abbia le colonne Testo, Valore, Tag
-    # La prima colonna è 'Testo' e 'Tag', poi le colonne per ogni mese (Testo, Valore, Tag)
-    edited_df = pd.concat([df_spese[["Testo", "Tag"]], df_spese[mesi]], axis=1)
-    edited_df.columns = ["Testo", "Tag"] + new_columns  # Cambia le intestazioni delle colonne
+    # Verifica che il numero di colonne corrisponda
+    expected_column_count = 2 + len(new_columns)  # 'Testo' e 'Tag' più le colonne per ogni mese (Testo, Valore, Tag)
+    if edited_df.shape[1] == expected_column_count:
+        # Riorganizza il dataframe in modo che ogni mese abbia le colonne Testo, Valore, Tag
+        # La prima colonna è 'Testo' e 'Tag', poi le colonne per ogni mese (Testo, Valore, Tag)
+        edited_df = pd.concat([df_spese[["Testo", "Tag"]], df_spese[mesi]], axis=1)
+        edited_df.columns = ["Testo", "Tag"] + new_columns  # Cambia le intestazioni delle colonne
+    else:
+        st.error(f"Il numero di colonne nel DataFrame non corrisponde a quello previsto. Atteso: {expected_column_count}, trovato: {edited_df.shape[1]}")
 
     # Usa st.data_editor per permettere la modifica della tabella (compreso il Tag tramite il menu a tendina)
     edited_df = st.data_editor(

@@ -117,7 +117,7 @@ edited_df = st.data_editor(
 
 from streamlit import data_editor
     # Definisco la configurazione per colonna Tag con dropdown
-    col_config = {
+col_config = {
         "Tag": st.column_config.SelectboxColumn(
             "Tag",
             options=tag_options,

@@ -96,7 +96,20 @@ if vista == "Spese dettagliate":
 
     # Prepara opzioni per dropdown nella colonna 'Tag'
     # Streamlit 1.24+ permette opzioni di dropdown per st.data_editor via il parametro 'column_config'
-    from streamlit.data_editor import GridOptionsBuilder, GridUpdateMode  # se vuoi griglia avanzata, ma non sempre serve
+    col_config = {
+    "Tag": st.column_config.SelectboxColumn(
+        "Tag",
+        options=tag_options,
+        help="Seleziona il Tag da elenco"
+    )
+}
+
+edited_df = st.data_editor(
+    df_filtrato,
+    use_container_width=True,
+    column_config=col_config,
+    num_rows="dynamic"
+)
 
     # Configurazione dropdown per colonna Tag
     # La sintassi aggiornata è tramite column_config (Streamlit 1.24+)

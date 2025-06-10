@@ -126,7 +126,7 @@ col_config = {
     }
 
     # Mostra tabella modificabile con filtro e dropdown su Tag
-    edited_df = st.data_editor(
+edited_df = st.data_editor(
         df_filtrato,
         use_container_width=True,
         column_config=col_config,

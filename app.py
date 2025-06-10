@@ -75,9 +75,9 @@ if vista == "Spese dettagliate":
     # La struttura della tabella avrà la prima riga con i mesi e la seconda riga con Testo, Valore, Tag
     new_columns = []
     for mese in mesi:
-        new_columns.append(f"{mese}_Testo")
-        new_columns.append(f"{mese}_Valore")
-        new_columns.append(f"{mese}_Tag")
+        new_columns.append((mese, "Testo"))
+        new_columns.append((mese, "Valore"))
+        new_columns.append((mese, "Tag"))
 
     # Creare il DataFrame con le due righe di intestazioni
     multiindex = pd.MultiIndex.from_tuples(
@@ -94,18 +94,13 @@ if vista == "Spese dettagliate":
         edited_df[(mese, "Valore")] = df_spese[mese]
         edited_df[(mese, "Tag")] = df_spese["Tag"]
 
-    # Impostiamo la visualizzazione della tabella con il menu a tendina per la colonna Tag
+    # Modifica i valori con il menu a tendina per 'Tag'
     for mese in mesi:
         edited_df[(mese, "Tag")] = st.selectbox(f"Scegli il Tag per {mese}", tag_options, index=tag_options.index(edited_df[(mese, "Tag")].iloc[0]))
 
-    # Usa st.data_editor per permettere la modifica della tabella
+    # Usa st.data_editor per permettere la modifica della tabella (compreso il Tag tramite il menu a tendina)
     edited_df = st.data_editor(
         edited_df,
-        column_config={
-            "Testo": st.column_config.TextColumn("Descrizione"),  # Modificabile come testo
-            "Valore": st.column_config.NumberColumn("Importo (€)", format="€ {value:,.2f}"),  # Modificabile come numero
-            "Tag": st.column_config.SelectboxColumn("Categoria", options=tag_options)  # Menu a tendina per il Tag
-        },
         use_container_width=True
     )
 

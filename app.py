@@ -98,37 +98,41 @@ elif vista == "Dashboard":
     mappa_macrocategorie = {
         "Entrate": ["Stipendio", "Affitto Savoldo 4", "generico"],
         "Uscite necessarie": [
-            "PAC Investimenti", "Donazioni (StC, Unicef, Greenpeace)",
-            "Mutuo", "Luce&Gas", "Internet/Telefono", "Mezzi",
-            "Spese condominiali", "Spese comuni", "Auto (benzina, noleggio, pedaggi, parcheggi)",
-            "Spesa cibo", "Tari", "Unobravo"
+            "PAC Investimenti", "Donazioni (StC, Unicef, Greenpeace)", "Mutuo", "Luce&Gas",
+            "Internet/Telefono", "Mezzi", "Spese condominiali", "Spese comuni",
+            "Auto (benzina, noleggio, pedaggi, parcheggi)", "Spesa cibo", "Tari", "Unobravo"
         ],
         "Uscite variabili": [
-            "Amazon", "Bolli governativi", "Farmacia/Visite", "Food Delivery",
-            "Generiche", "Multa", "Uscite (Pranzi,Cena,Apericena,Pub,etc)",
-            "Prelievi", "Regali", "Sharing (auto, motorino, bici)",
+            "Amazon", "Bolli governativi", "Farmacia/Visite", "Food Delivery", "Generiche", "Multa",
+            "Uscite (Pranzi,Cena,Apericena,Pub,etc)", "Prelievi", "Regali", "Sharing (auto, motorino, bici)",
             "Shopping (vestiti, mobili,...)", "Stireria", "Viaggi (treno, aereo, hotel, attrazioni, concerti, cinema)"
         ]
     }
 
-    # === Crea tabella macrocategorie ===
-    df_macrocategorie = pd.DataFrame()
+    # Inizializza il DataFrame con le colonne (mesi) corrette
+    mesi = df_riepilogo.columns
+    df_macrocategorie = pd.DataFrame(columns=mesi)
 
+    # Calcola i totali per ogni macrocategoria
     for macro, sottotag in mappa_macrocategorie.items():
         tag_presenti = [t for t in sottotag if t in df_riepilogo.index]
-        df_macrocategorie.loc[macro] = df_riepilogo.loc[tag_presenti].sum()
+        if tag_presenti:
+            somma = df_riepilogo.loc[tag_presenti].sum()
+        else:
+            somma = pd.Series([0] * len(mesi), index=mesi)
+        df_macrocategorie.loc[macro] = somma
 
-    # Risparmio mese = Entrate - Uscite necessarie - Uscite variabili
+    # Calcola risparmio mese
     df_macrocategorie.loc["Risparmio mese"] = (
         df_macrocategorie.loc["Entrate"]
         - df_macrocategorie.loc["Uscite necessarie"]
         - df_macrocategorie.loc["Uscite variabili"]
     )
 
-    # Risparmio cumulato = somma progressiva
+    # Calcola risparmio cumulato
     df_macrocategorie.loc["Risparmio cumulato"] = df_macrocategorie.loc["Risparmio mese"].cumsum()
 
-    # === Mostra tabella ===
+    # === Tabella formattata ===
     df_tabella = df_macrocategorie.copy().reset_index().rename(columns={"index": "Voce"})
     for col in df_tabella.columns[1:]:
         df_tabella[col] = df_tabella[col].apply(lambda x: formatta_euro(x) if pd.notnull(x) else "€ 0,00")
@@ -136,11 +140,11 @@ elif vista == "Dashboard":
     st.subheader("📊 Tabella riepilogo")
     st.dataframe(df_tabella, use_container_width=True, hide_index=True)
 
-    # === Mostra grafico ===
+    # === Grafico ===
     df_grafico = df_macrocategorie.transpose()
     st.subheader("📈 Andamento mensile")
     fig, ax = plt.subplots(figsize=(12, 6))
-    df_grafico[["Entrate", "Uscite necessarie", "Uscite variabili", "Risparmio mese", "Risparmio cumulato"]].plot(ax=ax)
+    df_grafico.plot(ax=ax)
     ax.set_title("Entrate, Uscite e Risparmio per mese")
     ax.set_xlabel("Mese")
     ax.set_ylabel("Importo (€)")

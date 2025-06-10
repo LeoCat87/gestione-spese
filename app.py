@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import gdown
  
 st.set_page_config(page_title="Gestione Spese", layout="wide")
-st.write("Streamlit version:", st.__version__)
 
 # === CONFIGURAZIONE ===
 GDRIVE_FILE_ID = "1PJ9TCcq4iBHeg8CpC1KWss0UWSg86BJn"

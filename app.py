@@ -63,22 +63,31 @@ vista = st.sidebar.radio("Scegli una vista:", ["Spese dettagliate", "Riepilogo m
  
 if vista == "Spese dettagliate":
     st.title("📌 Spese Dettagliate")
-    df_spese = carica_spese()
- 
-    col1, col2 = st.columns(2)
-    with col1:
-        categoria_sel = st.selectbox("Filtra per categoria:", ["Tutte"] + sorted(df_spese["Categoria"].unique()))
-    with col2:
-        tag_sel = st.selectbox("Filtra per tag:", ["Tutti"] + sorted(df_spese["Tag"].unique()))
- 
+
+    # Carica tutto il foglio "Spese 2025" SENZA modifiche e pulizie
+    df_spese = pd.read_excel(EXCEL_PATH, sheet_name="Spese 2025", header=[1])
+    df_spese = df_spese.loc[:, ~df_spese.columns.str.contains('^Unnamed')]  # elimina colonne vuote
+
+    # Filtro base per ogni colonna (opzionale)
+    st.write("### Filtra la tabella (facoltativo)")
+    filtro_testo = st.text_input("Filtra per 'Testo'")
+    filtro_tag = st.multiselect("Filtra per 'Tag'", options=df_spese["Tag"].dropna().unique())
+    filtro_categoria = st.multiselect("Filtra per 'Categoria' (se presente)", options=df_spese.columns[df_spese.columns.str.contains("Categoria")])
+
     df_filtrato = df_spese.copy()
-    if categoria_sel != "Tutte":
-        df_filtrato = df_filtrato[df_filtrato["Categoria"] == categoria_sel]
-    if tag_sel != "Tutti":
-        df_filtrato = df_filtrato[df_filtrato["Tag"] == tag_sel]
- 
-    df_filtrato["Valore"] = df_filtrato["Valore"].map(formatta_euro)
-    st.dataframe(df_filtrato.drop(columns=["Categoria"]), use_container_width=True)
+
+    if filtro_testo:
+        df_filtrato = df_filtrato[df_filtrato["Testo"].str.contains(filtro_testo, case=False, na=False)]
+    if filtro_tag:
+        df_filtrato = df_filtrato[df_filtrato["Tag"].isin(filtro_tag)]
+
+    # Mostra tabella modificabile con editor integrato
+    st.write("### Tabella modificabile")
+    edited_df = st.data_editor(df_filtrato, use_container_width=True)
+
+    # Qui edited_df è il DataFrame con le modifiche fatte dall'utente
+    # Se vuoi, puoi aggiungere qui codice per salvare edited_df da qualche parte o usarlo per altri calcoli
+
  
 # === VISTA 2: RIEPILOGO MENSILE ===
  

@@ -72,24 +72,30 @@ if vista == "Spese dettagliate":
     tag_options = ["Stipendio", "Affitto", "Spesa", "Bollette", "Trasporti", "Assicurazione", "Generiche"]
 
     # Usa st.data_editor per permettere la modifica della tabella (compreso il Tag tramite il menu a tendina)
-    edited_df = st.data_editor(
-        edited_df,
-        column_config={
-            "Testo": st.column_config.TextColumn("Descrizione"),  # Modificabile come testo
-            "Valore": st.column_config.NumberColumn("Importo (€)", format="€ {value:,.2f}"),  # Modificabile come numero
-            "Tag": st.column_config.SelectboxColumn("Categoria", options=tag_options)  # Menu a tendina per il Tag
-        },
-        use_container_width=True
-    )
+    try:
+        edited_df = st.data_editor(
+            edited_df,
+            column_config={
+                "Testo": st.column_config.TextColumn("Descrizione"),  # Modificabile come testo
+                "Valore": st.column_config.NumberColumn("Importo (€)", format="€ {value:,.2f}"),  # Modificabile come numero
+                "Tag": st.column_config.SelectboxColumn("Categoria", options=tag_options)  # Menu a tendina per il Tag
+            },
+            use_container_width=True
+        )
+    except Exception as e:
+        st.error(f"Errore nella modifica dei dati: {str(e)}")
 
     # === SALVARE LE MODIFICHE ===
     if st.button("Salva le modifiche"):
         # Usa openpyxl per aggiornare il file Excel
-        with pd.ExcelWriter(EXCEL_PATH, engine="openpyxl", mode='a') as writer:
-            # Rimuovi il foglio esistente prima di aggiungere i dati modificati
-            writer.book.remove(writer.book["Spese 2025"])
-            edited_df.to_excel(writer, sheet_name="Spese 2025", index=False)
-        st.success("Modifiche salvate con successo!")
+        try:
+            with pd.ExcelWriter(EXCEL_PATH, engine="openpyxl", mode='a') as writer:
+                # Rimuovi il foglio esistente prima di aggiungere i dati modificati
+                writer.book.remove(writer.book["Spese 2025"])
+                edited_df.to_excel(writer, sheet_name="Spese 2025", index=False)
+            st.success("Modifiche salvate con successo!")
+        except Exception as e:
+            st.error(f"Errore nel salvataggio del file Excel: {str(e)}")
 
 # === VISTA 2: RIEPILOGO MENSILE ===
 elif vista == "Riepilogo mensile":

@@ -146,38 +146,33 @@ elif vista == "Dashboard":
         ]
     }
 
-    # Inizializza il DataFrame con le colonne (mesi) corrette
+    # Inizializza DataFrame
     mesi = df_riepilogo.columns
     df_macrocategorie = pd.DataFrame(columns=mesi)
 
-    # Calcola i totali per ogni macrocategoria
     for macro, sottotag in mappa_macrocategorie.items():
         tag_presenti = [t for t in sottotag if t in df_riepilogo.index]
-        if tag_presenti:
-            somma = df_riepilogo.loc[tag_presenti].sum()
-        else:
-            somma = pd.Series([0] * len(mesi), index=mesi)
+        somma = df_riepilogo.loc[tag_presenti].sum() if tag_presenti else pd.Series([0] * len(mesi), index=mesi)
         df_macrocategorie.loc[macro] = somma
 
-    # Calcola risparmio mese
+    # Calcoli aggiuntivi
     df_macrocategorie.loc["Risparmio mese"] = (
         df_macrocategorie.loc["Entrate"]
         - df_macrocategorie.loc["Uscite necessarie"]
         - df_macrocategorie.loc["Uscite variabili"]
     )
-
-    # Calcola risparmio cumulato
     df_macrocategorie.loc["Risparmio cumulato"] = df_macrocategorie.loc["Risparmio mese"].cumsum()
 
-    # === Calcola colonna Media (fino al mese precedente) ===
+    # === Media YTD ===
     from datetime import datetime
+    mese_attuale = datetime.today().month
+    mesi_ytd = mesi[:mese_attuale - 1]  # fino al mese precedente
 
-    mese_attuale = datetime.now().month
-    mesi_valutabili = mesi[:mese_attuale - 1]  # da gennaio fino al mese precedente
-    df_macrocategorie["Media"] = df_macrocategorie[mesi_valutabili].mean(axis=1)
+    medie_ytd = df_macrocategorie[mesi_ytd].mean(axis=1)
+    df_macrocategorie["Media YTD"] = medie_ytd
 
     # === Tabella formattata ===
-    df_tabella = df_macrocategorie.copy().reset_index().rename(columns={"index": "Voce"})
+    df_tabella = df_macrocategorie.reset_index().rename(columns={"index": "Voce"})
     for col in df_tabella.columns[1:]:
         df_tabella[col] = df_tabella[col].apply(lambda x: formatta_euro(x) if pd.notnull(x) else "€ 0,00")
 

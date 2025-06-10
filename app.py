@@ -58,38 +58,29 @@ if vista == "Spese dettagliate":
     # === VISUALIZZARE E MODIFICARE I DATI ===
     st.subheader("📅 Modifica le Spese")
 
-    # Mostra i dati originali
+    # Mostra i dati originali come sono nel file Excel
     st.write("Dati originali caricati:")
     st.dataframe(df_spese, use_container_width=True)
 
     # Crea una copia modificabile dei dati
     edited_df = df_spese.copy()
 
-    # Lista dei tag che ci aspettiamo
+    # Definisci i tag possibili per la selezione
     tag_options = ["Stipendio", "Affitto", "Spesa", "Bollette", "Trasporti", "Assicurazione", "Generiche"]
 
-    # Permetti la modifica dei dati (Valore e Tag)
-    for index, row in edited_df.iterrows():
-        # Permetti di modificare il valore
-        new_value = st.number_input(f"Modifica il valore per {row['Tag']} (riga {index + 1})", 
-                                   value=row['Valore'], key=f"valore_{index}")
-        
-        # Verifica che il valore esista nelle opzioni dei tag
-        if row['Tag'] in tag_options:
-            new_tag = st.selectbox(f"Seleziona un tag per {row['Tag']} (riga {index + 1})",
-                                   options=tag_options, index=tag_options.index(row['Tag']), key=f"tag_{index}")
-        else:
-            new_tag = st.selectbox(f"Seleziona un tag per {row['Tag']} (riga {index + 1})",
-                                   options=tag_options, index=0, key=f"tag_{index}")  # Opzione predefinita
+    # Definisci i valori delle colonne che saranno modificabili
+    edited_df["Tag"] = edited_df["Tag"].apply(lambda x: tag_options[0] if x not in tag_options else x)  # Gestisce il caso di valori non standard
 
-        # Aggiorna i dati modificati nel dataframe
-        edited_df.at[index, 'Valore'] = new_value
-        edited_df.at[index, 'Tag'] = new_tag
-
-    # Mostra la tabella modificata
-    st.write("Tabella modificata:")
-    edited_df["Valore"] = edited_df["Valore"].map(formatta_euro)
-    st.dataframe(edited_df, use_container_width=True)
+    # Usa st.data_editor per permettere la modifica della tabella (compreso il Tag tramite il menu a tendina)
+    edited_df = st.data_editor(
+        edited_df,
+        column_config={
+            "Testo": st.column_config.TextColumn("Descrizione"),  # Modificabile come testo
+            "Valore": st.column_config.NumberColumn("Importo (€)", format="€ {value:,.2f}"),  # Modificabile come numero
+            "Tag": st.column_config.SelectboxColumn("Categoria", options=tag_options)  # Menu a tendina per il Tag
+        },
+        use_container_width=True
+    )
 
     # === SALVARE LE MODIFICHE ===
     if st.button("Salva le modifiche"):

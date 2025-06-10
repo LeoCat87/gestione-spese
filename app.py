@@ -22,21 +22,12 @@ scarica_excel_da_drive()
 
 @st.cache_data
 def carica_spese():
-    df = pd.read_excel(EXCEL_PATH, sheet_name="Spese 2025", header=[1])
-    df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
-    df = df.dropna(subset=["Valore", "Tag"])
+    # Carica il foglio 'Spese 2025' del file Excel
+    df = pd.read_excel(EXCEL_PATH, sheet_name="Spese 2025", header=1)
+    df = df.loc[:, ~df.columns.str.contains('^Unnamed')]  # Rimuove le colonne non nominate
+    df = df.dropna(subset=["Valore", "Tag"])  # Rimuove le righe senza 'Valore' o 'Tag'
     df = df.reset_index(drop=True)
-    df["Valore"] = pd.to_numeric(df["Valore"], errors="coerce").fillna(0)
-
-    def categoria_per_tag(tag):
-        if tag in ["Stipendio", "Entrate extra"]:
-            return "Entrate"
-        elif tag in ["Affitto", "Bollette", "Spesa", "Abbonamenti", "Trasporti", "Assicurazione"]:
-            return "Uscite necessarie"
-        else:
-            return "Uscite variabili"
-
-    df["Categoria"] = df["Tag"].apply(categoria_per_tag)
+    df["Valore"] = pd.to_numeric(df["Valore"], errors="coerce").fillna(0)  # Assicura che i valori siano numerici
     return df
 
 @st.cache_data
@@ -66,30 +57,39 @@ if vista == "Spese dettagliate":
 
     df_spese = carica_spese()
 
-    # === MODIFICARE I DATI ===
+    # === VISUALIZZARE E MODIFICARE I DATI ===
     st.subheader("📅 Modifica le Spese")
-    
-    # Mostra i dati già caricati, consentendo la modifica
-    edited_df = df_spese.copy()
 
-    for index, row in edited_df.iterrows():
-        edited_df.at[index, 'Valore'] = st.number_input(f"Modifica il valore per {row['Tag']}", 
-                                                       value=row['Valore'], key=f"valore_{index}")
-        edited_df.at[index, 'Tag'] = st.selectbox(f"Seleziona tag per {row['Testo']}", 
-                                                   options=["Stipendio", "Affitto", "Spesa", "Bollette", 
-                                                            "Trasporti", "Assicurazione", "Generiche"], 
-                                                   index=["Stipendio", "Affitto", "Spesa", "Bollette", 
-                                                          "Trasporti", "Assicurazione", "Generiche"].index(row['Tag']),
-                                                   key=f"tag_{index}")
+    # Utilizzare st.dataframe per visualizzare i dati originali
+    # Consente di visualizzare la tabella intera
+    edited_df = st.dataframe(df_spese, use_container_width=True)
+
+    # Modifica i dati
+    # È possibile aggiungere campi da modificare, come il "Valore" e "Tag" per ciascuna riga
+    for index, row in df_spese.iterrows():
+        # Permetti di modificare il valore
+        new_value = st.number_input(f"Modifica il valore per {row['Tag']} (riga {index + 1})", 
+                                   value=row['Valore'], key=f"valore_{index}")
+        # Permetti di modificare il tag
+        new_tag = st.selectbox(f"Seleziona un tag per {row['Tag']} (riga {index + 1})",
+                               options=["Stipendio", "Affitto", "Spesa", "Bollette", "Trasporti", 
+                                        "Assicurazione", "Generiche"], index=["Stipendio", "Affitto", 
+                                        "Spesa", "Bollette", "Trasporti", "Assicurazione", 
+                                        "Generiche"].index(row['Tag']), key=f"tag_{index}")
+        
+        # Aggiorna i dati modificati nel dataframe
+        df_spese.at[index, 'Valore'] = new_value
+        df_spese.at[index, 'Tag'] = new_tag
+
     # === VISUALIZZARE I DATI FILTRATI ===
-    edited_df["Valore"] = edited_df["Valore"].map(formatta_euro)
-    st.dataframe(edited_df, use_container_width=True)
+    df_spese["Valore"] = df_spese["Valore"].map(formatta_euro)
+    st.dataframe(df_spese, use_container_width=True)
 
     # === SALVARE LE MODIFICHE ===
     if st.button("Salva le modifiche"):
         with pd.ExcelWriter(EXCEL_PATH, engine="openpyxl", mode='a') as writer:
             # Salva nel foglio "Spese 2025"
-            edited_df.to_excel(writer, sheet_name="Spese 2025", index=False)
+            df_spese.to_excel(writer, sheet_name="Spese 2025", index=False)
         st.success("Modifiche salvate con successo!")
 
 # === VISTA 2: RIEPILOGO MENSILE ===

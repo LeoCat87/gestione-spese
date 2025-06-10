@@ -92,44 +92,60 @@ elif vista == "Riepilogo mensile":
  
 elif vista == "Dashboard":
     st.title("📈 Dashboard")
-    df_dash = carica_dashboard()
- 
-    if "Total" in df_dash.columns:
-        col_index = df_dash.columns.get_loc("Total") + 1
-        df_dash = df_dash.iloc[:, :col_index]
- 
-    df_formattato = df_dash.copy().reset_index().rename(columns={"index": "Voce"})
- 
-    for col in df_formattato.columns[1:]:  # salta la colonna "Voce"
+
+    df_riepilogo = carica_riepilogo()
+
+    # Definizione delle categorie
+    categorie = {
+        "Entrate": ["Stipendio", "Affitto Savoldo 4", "generico"],
+        "Uscite necessarie": [
+            "PAC Investimenti", "Donazioni (StC, Unicef, Greenpeace)", "Mutuo", "Luce&Gas",
+            "Internet/Telefono", "Mezzi", "Spese condominiali", "Spese comuni", 
+            "Auto (benzina, noleggio, pedaggi, parcheggi)", "Spesa cibo", "Tari", "Unobravo"
+        ],
+        "Uscite variabili": [
+            "Amazon", "Bolli governativi", "Farmacia/Visite", "Food Delivery", "Generiche",
+            "Multa", "Uscite (Pranzi,Cena,Apericena,Pub,etc)", "Prelievi", "Regali", 
+            "Sharing (auto, motorino, bici)", "Shopping (vestiti, mobili,...)", "Stireria",
+            "Viaggi (treno, aereo, hotel, attrazioni, concerti, cinema)"
+        ],
+    }
+
+    # Calcolo delle macrocategorie
+    df_dashboard = pd.DataFrame()
+    for macro, sotto in categorie.items():
+        df_dashboard.loc[macro] = df_riepilogo.loc[sotto].sum()
+
+    # Risparmio mese = Entrate - (Uscite necessarie + Uscite variabili)
+    df_dashboard.loc["Risparmio mese"] = (
+        df_dashboard.loc["Entrate"] -
+        df_dashboard.loc["Uscite necessarie"] -
+        df_dashboard.loc["Uscite variabili"]
+    )
+
+    # Risparmio cumulato = somma progressiva del risparmio mese
+    df_dashboard.loc["Risparmio cumulato"] = df_dashboard.loc["Risparmio mese"].cumsum()
+
+    # Tabella formattata
+    df_formattato = df_dashboard.copy().reset_index().rename(columns={"index": "Voce"})
+    for col in df_formattato.columns[1:]:
         df_formattato[col] = df_formattato[col].apply(
             lambda x: formatta_euro(x) if isinstance(x, (int, float)) else x
         )
- 
+
     st.subheader("📊 Tabella riepilogo")
     st.dataframe(df_formattato, use_container_width=True, hide_index=True)
- 
-    categorie_attese = [
-        "Entrate",
-        "Uscite necessarie",
-        "Uscite variabili",
-        "Risparmio mese",
-        "Risparmio cumulato"
-    ]
-    categorie_presenti = [cat for cat in categorie_attese if cat in df_dash.index]
- 
-    if not categorie_presenti:
-        st.warning("⚠️ Nessuna delle categorie previste è presente nel foglio 'Dashboard'.")
-    else:
-        df_valori = df_dash.drop(columns=["Total"])
-        df_valori = df_valori.loc[categorie_presenti]
-        df_valori = df_valori.transpose()
- 
-        st.subheader("📊 Andamento mensile per categoria")
-        fig, ax = plt.subplots(figsize=(12, 6))
-        df_valori.plot(kind="bar", ax=ax)
-        ax.set_ylabel("Importo (€)")
-        ax.set_xlabel("Mese")
-        ax.set_title("Entrate, Uscite e Risparmi per mese")
-        ax.legend(title="Categoria")
-        plt.xticks(rotation=45)
-        st.pyplot(fig)
+
+    # Grafico
+    df_valori = df_dashboard.transpose()[[
+        "Entrate", "Uscite necessarie", "Uscite variabili", "Risparmio mese", "Risparmio cumulato"
+    ]]
+    st.subheader("📊 Andamento mensile per categoria")
+    fig, ax = plt.subplots(figsize=(12, 6))
+    df_valori.plot(kind="bar", ax=ax)
+    ax.set_ylabel("Importo (€)")
+    ax.set_xlabel("Mese")
+    ax.set_title("Entrate, Uscite e Risparmi per mese")
+    ax.legend(title="Categoria")
+    plt.xticks(rotation=45)
+    st.pyplot(fig)

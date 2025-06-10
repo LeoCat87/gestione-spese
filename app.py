@@ -68,33 +68,10 @@ if vista == "Spese dettagliate":
     # Crea una copia modificabile dei dati
     edited_df = df_spese.copy()
 
-    # Crea la lista dei mesi
-    mesi = df_spese.columns[1:].to_list()  # Ignora la colonna 'Testo' per i mesi
+    # Aggiungi una colonna "Tag" con un menu a tendina per ogni mese
+    edited_df["Tag"] = edited_df["Tag"].apply(lambda x: st.selectbox("Scegli Categoria", tag_options, index=tag_options.index(x) if x in tag_options else 0))
 
-    # Riorganizzare i dati in modo che ogni mese abbia le colonne Testo, Valore e Tag
-    # La struttura della tabella avrà la prima riga con i mesi e la seconda riga con Testo, Valore, Tag
-    new_columns = []
-    for mese in mesi:
-        new_columns.append((mese, "Testo"))
-        new_columns.append((mese, "Valore"))
-        new_columns.append((mese, "Tag"))
-
-    # Creare il DataFrame con le due righe di intestazioni
-    multiindex = pd.MultiIndex.from_tuples(
-        [(mese, "Testo") for mese in mesi] + [(mese, "Valore") for mese in mesi] + [(mese, "Tag") for mese in mesi],
-        names=["Mese", "Campo"]
-    )
-
-    # Creiamo un nuovo DataFrame con la struttura desiderata
-    edited_df = pd.DataFrame(columns=multiindex)
-
-    # Popoliamo il DataFrame con i dati (Testo, Valore, Tag per ogni mese)
-    for mese in mesi:
-        edited_df[(mese, "Testo")] = df_spese["Testo"]
-        edited_df[(mese, "Valore")] = df_spese[mese]
-        edited_df[(mese, "Tag")] = df_spese["Tag"]
-
-    # Usa st.data_editor per permettere la modifica della tabella (compreso il Tag tramite il menu a tendina)
+    # Usa st.data_editor per permettere la modifica della tabella
     edited_df = st.data_editor(
         edited_df,
         column_config={

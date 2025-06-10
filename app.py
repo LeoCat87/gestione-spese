@@ -21,29 +21,35 @@ scarica_excel_da_drive()
 
 @st.cache_data
 def carica_spese():
-    # Leggi prima riga per i mesi
-    mesi = pd.read_excel(EXCEL_PATH, sheet_name="Spese 2025", nrows=1, header=None).iloc[0, 2:]  # salto primi 2 campi "Testo" e "Valore"
-    mesi = mesi.fillna("").tolist()
+    # Leggi la prima riga (header dei mesi e tipi di colonne)
+    header_1 = pd.read_excel(EXCEL_PATH, sheet_name="Spese 2025", nrows=1, header=None).iloc[0]
 
-    # Leggi dati da seconda riga in poi, con intestazioni corrette
-    df_raw = pd.read_excel(EXCEL_PATH, sheet_name="Spese 2025", header=1)
-    df_raw = df_raw.loc[:, ~df_raw.columns.str.contains('^Unnamed')]
+    # Leggi tutto il dataframe saltando la prima riga
+    df = pd.read_excel(EXCEL_PATH, sheet_name="Spese 2025", header=1)
+    df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
 
-    # Colonne "Testo" e "Tag" sono fisse, poi le colonne dei mesi a partire dalla terza colonna
-    # Trasformiamo il df da wide a long per avere una colonna "Mese" e "Valore"
-    df_long = df_raw.melt(id_vars=["Testo", "Tag"], var_name="Mese", value_name="Valore")
+    dati = []
+    n_colonne = len(df.columns)
 
-    # Sostituiamo i nomi colonne mesi con i nomi reali dalla prima riga
-    # Poiché il melt ha preso nomi colonne come stringhe (es. 'Gennaio', 'Febbraio', ecc)
-    # ma per sicurezza, se c'è discrepanza, mappiamo:
-    mappa_mesi = dict(zip(df_raw.columns[2:], mesi))
-    df_long["Mese"] = df_long["Mese"].map(mappa_mesi).fillna(df_long["Mese"])
+    # Ogni mese ha 3 colonne: Testo, Valore, Tag
+    # Scorriamo a step 3
+    for i in range(0, n_colonne, 3):
+        mese = header_1[i]  # nome del mese nella prima riga
+        # Prendi le 3 colonne del mese corrente
+        df_mese = df.iloc[:, i:i+3]
+        df_mese.columns = ["Testo", "Valore", "Tag"]
 
-    # Pulizia dati
-    df_long = df_long.dropna(subset=["Valore", "Tag"])
-    df_long["Valore"] = pd.to_numeric(df_long["Valore"], errors="coerce").fillna(0)
+        df_mese["Mese"] = mese
+        dati.append(df_mese)
 
-    # Categoria da Tag
+    # Unisci tutti i dati per mese
+    df_lungo = pd.concat(dati, ignore_index=True)
+
+    # Pulisci valori e filtra
+    df_lungo = df_lungo.dropna(subset=["Valore", "Tag"])
+    df_lungo["Valore"] = pd.to_numeric(df_lungo["Valore"], errors="coerce").fillna(0)
+
+    # Definisci categoria in base al tag
     def categoria_per_tag(tag):
         if tag in ["Stipendio", "Entrate extra"]:
             return "Entrate"
@@ -52,8 +58,10 @@ def carica_spese():
         else:
             return "Uscite variabili"
 
-    df_long["Categoria"] = df_long["Tag"].apply(categoria_per_tag)
-    return df_long
+    df_lungo["Categoria"] = df_lungo["Tag"].apply(categoria_per_tag)
+
+    return df_lungo
+
 
 def formatta_euro(val):
     return f"€ {val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")

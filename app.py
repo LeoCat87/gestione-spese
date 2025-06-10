@@ -68,12 +68,22 @@ if vista == "Spese dettagliate":
     # Crea una copia modificabile dei dati
     edited_df = df_spese.copy()
 
+    # Crea la struttura per avere i mesi nelle intestazioni e Testo, Valore, Tag sotto ogni mese
+    mesi = df_spese.columns[1:].to_list()  # Ignora la colonna 'Testo' per i mesi
+    new_columns = []
+    for mese in mesi:
+        new_columns.append(f"{mese}_Testo")
+        new_columns.append(f"{mese}_Valore")
+        new_columns.append(f"{mese}_Tag")
+
+    # Riorganizza il dataframe in modo che ogni mese abbia le colonne Testo, Valore, Tag
+    edited_df.columns = ["Testo", "Tag"] + new_columns
+
     # Usa st.data_editor per permettere la modifica della tabella (compreso il Tag tramite il menu a tendina)
     edited_df = st.data_editor(
         edited_df,
         column_config={
             "Testo": st.column_config.TextColumn("Descrizione"),  # Modificabile come testo
-            "Valore": st.column_config.NumberColumn("Importo (€)", format="€ {value:,.2f}"),  # Modificabile come numero
             "Tag": st.column_config.SelectboxColumn("Categoria", options=tag_options)  # Menu a tendina per il Tag
         },
         use_container_width=True

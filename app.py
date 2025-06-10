@@ -1,8 +1,7 @@
 import streamlit as st
 import pandas as pd
 import gdown
-import matplotlib.pyplot as plt
-from io import BytesIO
+import openpyxl
 
 st.set_page_config(page_title="Gestione Spese", layout="wide")
 
@@ -25,9 +24,7 @@ def carica_spese():
     # Carica il foglio 'Spese 2025' del file Excel e assicurati che le intestazioni siano correttamente settate
     df = pd.read_excel(EXCEL_PATH, sheet_name="Spese 2025", header=1)
     df = df.loc[:, ~df.columns.str.contains('^Unnamed')]  # Rimuove le colonne non nominate
-    df = df.dropna(subset=["Valore", "Tag"])  # Rimuove le righe senza 'Valore' o 'Tag'
     df = df.reset_index(drop=True)
-    df["Valore"] = pd.to_numeric(df["Valore"], errors="coerce").fillna(0)  # Assicura che i valori siano numerici
     return df
 
 @st.cache_data
@@ -61,7 +58,7 @@ if vista == "Spese dettagliate":
     # === VISUALIZZARE E MODIFICARE I DATI ===
     st.subheader("📅 Modifica le Spese")
 
-    # Mostra i dati originali
+    # Mostra i dati originali come sono nel file Excel
     st.write("Dati originali caricati:")
     st.dataframe(df_spese, use_container_width=True)
 
@@ -70,8 +67,10 @@ if vista == "Spese dettagliate":
 
     # Permetti la modifica dei dati (Valore e Tag)
     for index, row in edited_df.iterrows():
+        # Permetti di modificare il valore
         new_value = st.number_input(f"Modifica il valore per {row['Tag']} (riga {index + 1})", 
                                    value=row['Valore'], key=f"valore_{index}")
+        # Permetti di modificare il tag
         new_tag = st.selectbox(f"Seleziona un tag per {row['Tag']} (riga {index + 1})",
                                options=["Stipendio", "Affitto", "Spesa", "Bollette", "Trasporti", 
                                         "Assicurazione", "Generiche"], index=["Stipendio", "Affitto", 
@@ -89,8 +88,10 @@ if vista == "Spese dettagliate":
 
     # === SALVARE LE MODIFICHE ===
     if st.button("Salva le modifiche"):
+        # Usa openpyxl per aggiornare il file Excel
         with pd.ExcelWriter(EXCEL_PATH, engine="openpyxl", mode='a') as writer:
-            # Salva nel foglio "Spese 2025"
+            # Rimuovi il foglio esistente prima di aggiungere i dati modificati
+            writer.book.remove(writer.book["Spese 2025"])
             edited_df.to_excel(writer, sheet_name="Spese 2025", index=False)
         st.success("Modifiche salvate con successo!")
 

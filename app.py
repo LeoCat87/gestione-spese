@@ -131,7 +131,7 @@ elif vista == "Dashboard":
 
     df_riepilogo = carica_riepilogo()
 
-    # Mappa tag a macrocategorie (stessa che usi tu, aggiorna se serve)
+    # === Mappa tag a macrocategorie ===
     mappa_macrocategorie = {
         "Entrate": ["Stipendio", "Affitto Savoldo 4 + generico"],
         "Uscite necessarie": [
@@ -146,10 +146,11 @@ elif vista == "Dashboard":
         ]
     }
 
+    # Inizializza il DataFrame con le colonne (mesi) corrette
     mesi = df_riepilogo.columns
     df_macrocategorie = pd.DataFrame(columns=mesi)
 
-    # Calcola i totali per ogni macrocategoria aggregando i tag dal riepilogo
+    # Calcola i totali per ogni macrocategoria
     for macro, sottotag in mappa_macrocategorie.items():
         tag_presenti = [t for t in sottotag if t in df_riepilogo.index]
         if tag_presenti:
@@ -158,24 +159,33 @@ elif vista == "Dashboard":
             somma = pd.Series([0] * len(mesi), index=mesi)
         df_macrocategorie.loc[macro] = somma
 
-    # Calcola Risparmio mese e Risparmio cumulato
+    # Calcola risparmio mese
     df_macrocategorie.loc["Risparmio mese"] = (
         df_macrocategorie.loc["Entrate"]
         - df_macrocategorie.loc["Uscite necessarie"]
         - df_macrocategorie.loc["Uscite variabili"]
     )
+
+    # Calcola risparmio cumulato
     df_macrocategorie.loc["Risparmio cumulato"] = df_macrocategorie.loc["Risparmio mese"].cumsum()
 
-    # Formattazione tabella
-    df_tabella = df_macrocategorie.reset_index().rename(columns={"index": "Voce"})
+    # === Calcola colonna Media (fino al mese precedente) ===
+    from datetime import datetime
+
+    mese_attuale = datetime.now().month
+    mesi_valutabili = mesi[:mese_attuale - 1]  # da gennaio fino al mese precedente
+    df_macrocategorie["Media"] = df_macrocategorie[mesi_valutabili].mean(axis=1)
+
+    # === Tabella formattata ===
+    df_tabella = df_macrocategorie.copy().reset_index().rename(columns={"index": "Voce"})
     for col in df_tabella.columns[1:]:
         df_tabella[col] = df_tabella[col].apply(lambda x: formatta_euro(x) if pd.notnull(x) else "€ 0,00")
 
     st.subheader("📊 Tabella riepilogo")
     st.dataframe(df_tabella, use_container_width=True, hide_index=True)
 
-    # Grafico a barre
-    df_grafico = df_macrocategorie.transpose()
+    # === Grafico ===
+    df_grafico = df_macrocategorie[mesi].transpose()
     st.subheader("📈 Andamento mensile")
     fig, ax = plt.subplots(figsize=(12, 6))
     df_grafico.plot(kind="bar", ax=ax)

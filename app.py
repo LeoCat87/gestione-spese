@@ -141,12 +141,13 @@ elif vista == "Dashboard":
     st.dataframe(df_tabella, use_container_width=True, hide_index=True)
 
     # === Grafico ===
-    df_grafico = df_macrocategorie.transpose()
-    st.subheader("📈 Andamento mensile")
-    fig, ax = plt.subplots(figsize=(12, 6))
-    df_grafico.plot(kind='bar', ax=ax)
-    ax.set_title("Entrate, Uscite e Risparmio per mese")
-    ax.set_xlabel("Mese")
-    ax.set_ylabel("Importo (€)")
-    plt.xticks(rotation=45)
-    st.pyplot(fig)
+df_grafico = df_macrocategorie.transpose()
+st.subheader("📈 Andamento mensile")
+fig, ax = plt.subplots(figsize=(12, 6))
+df_grafico.plot(kind='bar', ax=ax)
+ax.set_title("Entrate, Uscite e Risparmio per mese")
+ax.set_xlabel("Mese")
+ax.set_ylabel("Importo (€)")
+plt.xticks(rotation=45)
+st.pyplot(fig)
+

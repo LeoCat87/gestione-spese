@@ -78,7 +78,11 @@ if vista == "Spese dettagliate":
 
     # === MODIFICARE I DATI ===
     st.subheader("📅 Modifica le Spese")
-    edited_df = st.experimental_data_editor(df_filtrato, use_container_width=True)
+    # Per ogni riga, rendi modificabile il valore
+    for index, row in df_filtrato.iterrows():
+        new_value = st.number_input(f"Modifica il valore per {row['Tag']}", 
+                                   value=row["Valore"], key=index)
+        df_filtrato.at[index, "Valore"] = new_value
 
     # === MENU A TENDINA PER TAG ===
     categorie_riepilogo = carica_riepilogo().index.tolist()
@@ -86,9 +90,9 @@ if vista == "Spese dettagliate":
 
     # === AGGIORNAMENTO DEI DATI ===
     if st.button("Salva le modifiche"):
-        # Salva i dati modificati
+        # Salva i dati modificati nel file Excel
         with pd.ExcelWriter(EXCEL_PATH, engine="openpyxl", mode='a') as writer:
-            edited_df.to_excel(writer, sheet_name="Spese 2025", index=False)
+            df_filtrato.to_excel(writer, sheet_name="Spese 2025", index=False)
         st.success("Modifiche salvate con successo!")
 
     # === VISUALIZZARE I DATI FILTRATI ===

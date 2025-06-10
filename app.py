@@ -25,6 +25,9 @@ def carica_spese():
     df = pd.read_excel(EXCEL_PATH, sheet_name="Spese 2025", header=1)
     df = df.loc[:, ~df.columns.str.contains('^Unnamed')]  # Rimuove le colonne non nominate
     df = df.reset_index(drop=True)
+    # Assicuriamoci che 'Valore' sia numerico e 'Tag' sia stringa
+    df["Valore"] = pd.to_numeric(df["Valore"], errors="coerce")
+    df["Tag"] = df["Tag"].astype(str)
     return df
 
 @st.cache_data
@@ -67,9 +70,6 @@ if vista == "Spese dettagliate":
 
     # Definisci i tag possibili per la selezione
     tag_options = ["Stipendio", "Affitto", "Spesa", "Bollette", "Trasporti", "Assicurazione", "Generiche"]
-
-    # Definisci i valori delle colonne che saranno modificabili
-    edited_df["Tag"] = edited_df["Tag"].apply(lambda x: tag_options[0] if x not in tag_options else x)  # Gestisce il caso di valori non standard
 
     # Usa st.data_editor per permettere la modifica della tabella (compreso il Tag tramite il menu a tendina)
     edited_df = st.data_editor(

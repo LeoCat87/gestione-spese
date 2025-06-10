@@ -84,10 +84,61 @@ if vista == "Spese dettagliate":
  
 elif vista == "Riepilogo mensile":
     st.title("📊 Riepilogo Mensile per Tag")
+
     df_riepilogo = carica_riepilogo()
-    # Mostriamo solo i singoli tag (le righe di df_riepilogo sono i tag, quindi nessuna aggregazione)
-    df_formattato = df_riepilogo.applymap(lambda x: formatta_euro(x) if isinstance(x, (int, float)) else x)
-    st.dataframe(df_formattato, use_container_width=True, hide_index=True)
+
+    # Mappatura Tag → Categoria
+    mappa_macrocategorie = {
+        "Entrate": ["Stipendio", "Affitto Savoldo 4 + generico"],
+        "Uscite necessarie": [
+            "PAC Investimenti", "Donazioni (StC, Unicef, Greenpeace)", "Mutuo", "Luce&Gas",
+            "Internet/Telefono", "Mezzi", "Spese condominiali", "Spese comuni",
+            "Auto (benzina, noleggio, pedaggi, parcheggi)", "Spesa cibo", "Tari", "Unobravo"
+        ],
+        "Uscite variabili": [
+            "Amazon", "Bolli governativi", "Farmacia/Visite", "Food Delivery", "Generiche", "Multa",
+            "Uscite (Pranzi,Cena,Apericena,Pub,etc)", "Prelievi", "Regali", "Sharing (auto, motorino, bici)",
+            "Shopping (vestiti, mobili,...)", "Stireria", "Viaggi (treno, aereo, hotel, attrazioni, concerti, cinema)"
+        ]
+    }
+
+    # Costruzione nuova tabella con colonna "Categoria"
+    righe_finali = []
+
+    for categoria, tag_list in mappa_macrocategorie.items():
+        # Riga vuota con nome della categoria (intestazione)
+        intestazione = pd.Series([None] * len(df_riepilogo.columns), index=df_riepilogo.columns, name=categoria)
+        righe_finali.append(intestazione)
+
+        for tag in tag_list:
+            if tag in df_riepilogo.index:
+                riga = df_riepilogo.loc[tag]
+                riga.name = tag
+                righe_finali.append(riga)
+
+    # Crea il nuovo DataFrame ordinato
+    df_riepilogo_cat = pd.DataFrame(righe_finali)
+
+    # Aggiungi colonna "Categoria"
+    categorie = []
+    for idx in df_riepilogo_cat.index:
+        if idx in mappa_macrocategorie:
+            categoria_corrente = idx
+            categorie.append("")  # Nessuna categoria per riga intestazione
+        else:
+            categorie.append(categoria_corrente)
+
+    df_riepilogo_cat.insert(0, "Categoria", categorie)
+
+    # Formatta numeri in euro
+    df_formattato = df_riepilogo_cat.copy()
+    for col in df_formattato.columns[1:]:
+        df_formattato[col] = df_formattato[col].apply(
+            lambda x: formatta_euro(x) if pd.notnull(x) and isinstance(x, (int, float)) else ""
+        )
+
+    st.dataframe(df_formattato, use_container_width=True, hide_index=False)
+
  
 # === VISTA 3: DASHBOARD ===
 elif vista == "Dashboard":

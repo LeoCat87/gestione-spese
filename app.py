@@ -60,13 +60,11 @@ if vista == "Spese dettagliate":
     # === VISUALIZZARE E MODIFICARE I DATI ===
     st.subheader("📅 Modifica le Spese")
 
-    # Utilizzare st.dataframe per visualizzare i dati originali
-    # Consente di visualizzare la tabella intera
-    edited_df = st.dataframe(df_spese, use_container_width=True)
+    # Mostra i dati nella tabella, inclusi i valori e le intestazioni corretti
+    # Creiamo una versione modificabile della tabella
+    edited_df = df_spese.copy()
 
-    # Modifica i dati
-    # È possibile aggiungere campi da modificare, come il "Valore" e "Tag" per ciascuna riga
-    for index, row in df_spese.iterrows():
+    for index, row in edited_df.iterrows():
         # Permetti di modificare il valore
         new_value = st.number_input(f"Modifica il valore per {row['Tag']} (riga {index + 1})", 
                                    value=row['Valore'], key=f"valore_{index}")
@@ -78,18 +76,18 @@ if vista == "Spese dettagliate":
                                         "Generiche"].index(row['Tag']), key=f"tag_{index}")
         
         # Aggiorna i dati modificati nel dataframe
-        df_spese.at[index, 'Valore'] = new_value
-        df_spese.at[index, 'Tag'] = new_tag
+        edited_df.at[index, 'Valore'] = new_value
+        edited_df.at[index, 'Tag'] = new_tag
 
-    # === VISUALIZZARE I DATI FILTRATI ===
-    df_spese["Valore"] = df_spese["Valore"].map(formatta_euro)
-    st.dataframe(df_spese, use_container_width=True)
+    # === VISUALIZZARE LA TABELLA MODIFICATA ===
+    edited_df["Valore"] = edited_df["Valore"].map(formatta_euro)
+    st.dataframe(edited_df, use_container_width=True)
 
     # === SALVARE LE MODIFICHE ===
     if st.button("Salva le modifiche"):
         with pd.ExcelWriter(EXCEL_PATH, engine="openpyxl", mode='a') as writer:
             # Salva nel foglio "Spese 2025"
-            df_spese.to_excel(writer, sheet_name="Spese 2025", index=False)
+            edited_df.to_excel(writer, sheet_name="Spese 2025", index=False)
         st.success("Modifiche salvate con successo!")
 
 # === VISTA 2: RIEPILOGO MENSILE ===

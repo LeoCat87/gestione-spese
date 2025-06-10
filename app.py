@@ -62,15 +62,11 @@ if vista == "Spese dettagliate":
     # === VISUALIZZARE E MODIFICARE I DATI ===
     st.subheader("📅 Modifica le Spese")
 
-    # Mostra i dati originali come sono nel file Excel
-    st.write("Dati originali caricati:")
-    st.dataframe(df_spese, use_container_width=True)
+    # Definisci i tag possibili per la selezione
+    tag_options = ["Stipendio", "Affitto", "Spesa", "Bollette", "Trasporti", "Assicurazione", "Generiche"]
 
     # Crea una copia modificabile dei dati
     edited_df = df_spese.copy()
-
-    # Definisci i tag possibili per la selezione
-    tag_options = ["Stipendio", "Affitto", "Spesa", "Bollette", "Trasporti", "Assicurazione", "Generiche"]
 
     # Usa st.data_editor per permettere la modifica della tabella (compreso il Tag tramite il menu a tendina)
     edited_df = st.data_editor(

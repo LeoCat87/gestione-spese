@@ -87,20 +87,21 @@ if vista == "Spese dettagliate":
 
     # Creiamo un nuovo DataFrame con la struttura desiderata
     edited_df = pd.DataFrame(columns=multiindex)
-    
+
     # Popoliamo il DataFrame con i dati (Testo, Valore, Tag per ogni mese)
     for mese in mesi:
         edited_df[(mese, "Testo")] = df_spese["Testo"]
         edited_df[(mese, "Valore")] = df_spese[mese]
         edited_df[(mese, "Tag")] = df_spese["Tag"]
 
-    # Modifica i valori con il menu a tendina per 'Tag'
-    for mese in mesi:
-        edited_df[(mese, "Tag")] = st.selectbox(f"Scegli il Tag per {mese}", tag_options, index=tag_options.index(edited_df[(mese, "Tag")].iloc[0]))
-
     # Usa st.data_editor per permettere la modifica della tabella (compreso il Tag tramite il menu a tendina)
     edited_df = st.data_editor(
         edited_df,
+        column_config={
+            "Testo": st.column_config.TextColumn("Descrizione"),  # Modificabile come testo
+            "Valore": st.column_config.NumberColumn("Importo (€)", format="€ {value:,.2f}"),  # Modificabile come numero
+            "Tag": st.column_config.SelectboxColumn("Categoria", options=tag_options)  # Menu a tendina per il Tag
+        },
         use_container_width=True
     )
 

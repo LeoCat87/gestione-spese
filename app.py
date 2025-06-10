@@ -66,38 +66,31 @@ if vista == "Spese dettagliate":
 
     df_spese = carica_spese()
 
-    # === FILTRARE I DATI ===
-    categoria_sel = st.selectbox("Filtra per categoria:", ["Tutte"] + sorted(df_spese["Categoria"].unique()))
-    tag_sel = st.selectbox("Filtra per tag:", ["Tutti"] + sorted(df_spese["Tag"].unique()))
-
-    df_filtrato = df_spese.copy()
-    if categoria_sel != "Tutte":
-        df_filtrato = df_filtrato[df_filtrato["Categoria"] == categoria_sel]
-    if tag_sel != "Tutti":
-        df_filtrato = df_filtrato[df_filtrato["Tag"] == tag_sel]
-
     # === MODIFICARE I DATI ===
     st.subheader("📅 Modifica le Spese")
-    # Per ogni riga, rendi modificabile il valore
-    for index, row in df_filtrato.iterrows():
-        new_value = st.number_input(f"Modifica il valore per {row['Tag']}", 
-                                   value=row["Valore"], key=index)
-        df_filtrato.at[index, "Valore"] = new_value
+    
+    # Mostra i dati già caricati, consentendo la modifica
+    edited_df = df_spese.copy()
 
-    # === MENU A TENDINA PER TAG ===
-    categorie_riepilogo = carica_riepilogo().index.tolist()
-    tag_modifica = st.selectbox("Seleziona una categoria da modificare:", categorie_riepilogo)
-
-    # === AGGIORNAMENTO DEI DATI ===
-    if st.button("Salva le modifiche"):
-        # Salva i dati modificati nel file Excel
-        with pd.ExcelWriter(EXCEL_PATH, engine="openpyxl", mode='a') as writer:
-            df_filtrato.to_excel(writer, sheet_name="Spese 2025", index=False)
-        st.success("Modifiche salvate con successo!")
-
+    for index, row in edited_df.iterrows():
+        edited_df.at[index, 'Valore'] = st.number_input(f"Modifica il valore per {row['Tag']}", 
+                                                       value=row['Valore'], key=f"valore_{index}")
+        edited_df.at[index, 'Tag'] = st.selectbox(f"Seleziona tag per {row['Testo']}", 
+                                                   options=["Stipendio", "Affitto", "Spesa", "Bollette", 
+                                                            "Trasporti", "Assicurazione", "Generiche"], 
+                                                   index=["Stipendio", "Affitto", "Spesa", "Bollette", 
+                                                          "Trasporti", "Assicurazione", "Generiche"].index(row['Tag']),
+                                                   key=f"tag_{index}")
     # === VISUALIZZARE I DATI FILTRATI ===
-    df_filtrato["Valore"] = df_filtrato["Valore"].map(formatta_euro)
-    st.dataframe(df_filtrato, use_container_width=True)
+    edited_df["Valore"] = edited_df["Valore"].map(formatta_euro)
+    st.dataframe(edited_df, use_container_width=True)
+
+    # === SALVARE LE MODIFICHE ===
+    if st.button("Salva le modifiche"):
+        with pd.ExcelWriter(EXCEL_PATH, engine="openpyxl", mode='a') as writer:
+            # Salva nel foglio "Spese 2025"
+            edited_df.to_excel(writer, sheet_name="Spese 2025", index=False)
+        st.success("Modifiche salvate con successo!")
 
 # === VISTA 2: RIEPILOGO MENSILE ===
 elif vista == "Riepilogo mensile":

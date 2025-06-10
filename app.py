@@ -87,7 +87,6 @@ elif vista == "Riepilogo mensile":
 
     df_riepilogo = carica_riepilogo()
 
-    # Mappatura Tag → Categoria
     mappa_macrocategorie = {
         "Entrate": ["Stipendio", "Affitto Savoldo 4 + generico"],
         "Uscite necessarie": [
@@ -102,11 +101,9 @@ elif vista == "Riepilogo mensile":
         ]
     }
 
-    # Costruzione nuova tabella con colonna "Categoria"
     righe_finali = []
 
     for categoria, tag_list in mappa_macrocategorie.items():
-        # Riga vuota con nome della categoria (intestazione)
         intestazione = pd.Series([None] * len(df_riepilogo.columns), index=df_riepilogo.columns, name=categoria)
         righe_finali.append(intestazione)
 
@@ -116,23 +113,11 @@ elif vista == "Riepilogo mensile":
                 riga.name = tag
                 righe_finali.append(riga)
 
-    # Crea il nuovo DataFrame ordinato
     df_riepilogo_cat = pd.DataFrame(righe_finali)
 
-    # Aggiungi colonna "Categoria"
-    categorie = []
-    for idx in df_riepilogo_cat.index:
-        if idx in mappa_macrocategorie:
-            categoria_corrente = idx
-            categorie.append("")  # Nessuna categoria per riga intestazione
-        else:
-            categorie.append(categoria_corrente)
-
-    df_riepilogo_cat.insert(0, "Categoria", categorie)
-
-    # Formatta numeri in euro
+    # Formatta i valori in euro, lascia vuoto le righe intestazione
     df_formattato = df_riepilogo_cat.copy()
-    for col in df_formattato.columns[1:]:
+    for col in df_formattato.columns:
         df_formattato[col] = df_formattato[col].apply(
             lambda x: formatta_euro(x) if pd.notnull(x) and isinstance(x, (int, float)) else ""
         )

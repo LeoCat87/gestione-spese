@@ -2,31 +2,48 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import gdown
- 
+
 st.set_page_config(page_title="Gestione Spese", layout="wide")
- 
+
 # === CONFIGURAZIONE ===
 GDRIVE_FILE_ID = "1PJ9TCcq4iBHeg8CpC1KWss0UWSg86BJn"
 EXCEL_PATH = "Spese_Leo.xlsx"
- 
+
 # Scarica il file Excel da Google Drive
 @st.cache_data
 def scarica_excel_da_drive():
     url = f"https://drive.google.com/uc?id={GDRIVE_FILE_ID}"
     gdown.download(url, EXCEL_PATH, quiet=True)
- 
+
 scarica_excel_da_drive()
- 
+
 # === FUNZIONI DI CARICAMENTO ===
- 
+
 @st.cache_data
 def carica_spese():
-    df = pd.read_excel(EXCEL_PATH, sheet_name="Spese 2025", header=[1])
-    df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
-    df = df.dropna(subset=["Valore", "Tag"])
-    df = df.reset_index(drop=True)
-    df["Valore"] = pd.to_numeric(df["Valore"], errors="coerce").fillna(0)
- 
+    # Leggi prima riga per i mesi
+    mesi = pd.read_excel(EXCEL_PATH, sheet_name="Spese 2025", nrows=1, header=None).iloc[0, 2:]  # salto primi 2 campi "Testo" e "Valore"
+    mesi = mesi.fillna("").tolist()
+
+    # Leggi dati da seconda riga in poi, con intestazioni corrette
+    df_raw = pd.read_excel(EXCEL_PATH, sheet_name="Spese 2025", header=1)
+    df_raw = df_raw.loc[:, ~df_raw.columns.str.contains('^Unnamed')]
+
+    # Colonne "Testo" e "Tag" sono fisse, poi le colonne dei mesi a partire dalla terza colonna
+    # Trasformiamo il df da wide a long per avere una colonna "Mese" e "Valore"
+    df_long = df_raw.melt(id_vars=["Testo", "Tag"], var_name="Mese", value_name="Valore")
+
+    # Sostituiamo i nomi colonne mesi con i nomi reali dalla prima riga
+    # Poiché il melt ha preso nomi colonne come stringhe (es. 'Gennaio', 'Febbraio', ecc)
+    # ma per sicurezza, se c'è discrepanza, mappiamo:
+    mappa_mesi = dict(zip(df_raw.columns[2:], mesi))
+    df_long["Mese"] = df_long["Mese"].map(mappa_mesi).fillna(df_long["Mese"])
+
+    # Pulizia dati
+    df_long = df_long.dropna(subset=["Valore", "Tag"])
+    df_long["Valore"] = pd.to_numeric(df_long["Valore"], errors="coerce").fillna(0)
+
+    # Categoria da Tag
     def categoria_per_tag(tag):
         if tag in ["Stipendio", "Entrate extra"]:
             return "Entrate"
@@ -34,102 +51,80 @@ def carica_spese():
             return "Uscite necessarie"
         else:
             return "Uscite variabili"
- 
-    df["Categoria"] = df["Tag"].apply(categoria_per_tag)
-    return df
- 
-@st.cache_data
-def carica_riepilogo():
-    df = pd.read_excel(EXCEL_PATH, sheet_name="Riepilogo 2025", index_col=0)
-    df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
-    return df
- 
-@st.cache_data
-def carica_dashboard():
-    df = pd.read_excel(EXCEL_PATH, sheet_name="Dashboard 2025", index_col=0)
-    df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
-    df["Total"] = df["Total"].fillna(0)
-    return df
- 
+
+    df_long["Categoria"] = df_long["Tag"].apply(categoria_per_tag)
+    return df_long
+
 def formatta_euro(val):
     return f"€ {val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
- 
+
 # === INTERFACCIA ===
- 
+
 st.sidebar.title("📁 Navigazione")
-vista = st.sidebar.radio("Scegli una vista:", ["Spese dettagliate", "Riepilogo mensile", "Dashboard"])
- 
-# === VISTA 1: SPESE DETTAGLIATE ===
- 
+vista = st.sidebar.radio("Scegli una vista:", ["Spese dettagliate", "Dashboard dinamica"])
+
 if vista == "Spese dettagliate":
     st.title("📌 Spese Dettagliate")
     df_spese = carica_spese()
- 
+
     col1, col2 = st.columns(2)
     with col1:
         categoria_sel = st.selectbox("Filtra per categoria:", ["Tutte"] + sorted(df_spese["Categoria"].unique()))
     with col2:
         tag_sel = st.selectbox("Filtra per tag:", ["Tutti"] + sorted(df_spese["Tag"].unique()))
- 
+
     df_filtrato = df_spese.copy()
     if categoria_sel != "Tutte":
         df_filtrato = df_filtrato[df_filtrato["Categoria"] == categoria_sel]
     if tag_sel != "Tutti":
         df_filtrato = df_filtrato[df_filtrato["Tag"] == tag_sel]
- 
+
     df_filtrato["Valore"] = df_filtrato["Valore"].map(formatta_euro)
     st.dataframe(df_filtrato.drop(columns=["Categoria"]), use_container_width=True)
- 
-# === VISTA 2: RIEPILOGO MENSILE ===
- 
-elif vista == "Riepilogo mensile":
-    st.title("📊 Riepilogo Mensile per Tag")
-    df_riepilogo = carica_riepilogo()
-    df_formattato = df_riepilogo.applymap(lambda x: formatta_euro(x) if isinstance(x, (int, float)) else x)
-    st.dataframe(df_formattato, use_container_width=True, hide_index=True)
- 
-# === VISTA 3: DASHBOARD ===
- 
-elif vista == "Dashboard":
-    st.title("📈 Dashboard")
-    df_dash = carica_dashboard()
- 
-    if "Total" in df_dash.columns:
-        col_index = df_dash.columns.get_loc("Total") + 1
-        df_dash = df_dash.iloc[:, :col_index]
- 
-    df_formattato = df_dash.copy().reset_index().rename(columns={"index": "Voce"})
- 
-    for col in df_formattato.columns[1:]:  # salta la colonna "Voce"
-        df_formattato[col] = df_formattato[col].apply(
-            lambda x: formatta_euro(x) if isinstance(x, (int, float)) else x
-        )
- 
+
+elif vista == "Dashboard dinamica":
+    st.title("📈 Dashboard dinamica")
+
+    df_spese = carica_spese()
+
+    # Pivot: somma Valore per Categoria e Mese
+    df_pivot = pd.pivot_table(
+        df_spese,
+        index="Categoria",
+        columns="Mese",
+        values="Valore",
+        aggfunc="sum",
+        fill_value=0,
+        margins=True,
+        margins_name="Total"
+    )
+
+    # Calcola Risparmio mese = Entrate - (Uscite necessarie + Uscite variabili)
+    if all(x in df_pivot.index for x in ["Entrate", "Uscite necessarie", "Uscite variabili"]):
+        risparmio = df_pivot.loc["Entrate"] - (df_pivot.loc["Uscite necessarie"] + df_pivot.loc["Uscite variabili"])
+        df_pivot.loc["Risparmio mese"] = risparmio
+        df_pivot.loc["Risparmio cumulato"] = risparmio.cumsum()
+
+    df_formattato = df_pivot.reset_index().rename(columns={"index": "Voce"})
+    for col in df_formattato.columns[1:]:
+        df_formattato[col] = df_formattato[col].apply(formatta_euro)
+
     st.subheader("📊 Tabella riepilogo")
     st.dataframe(df_formattato, use_container_width=True, hide_index=True)
- 
-    categorie_attese = [
-        "Entrate",
-        "Uscite necessarie",
-        "Uscite variabili",
-        "Risparmio mese",
-        "Risparmio cumulato"
-    ]
-    categorie_presenti = [cat for cat in categorie_attese if cat in df_dash.index]
- 
-    if not categorie_presenti:
-        st.warning("⚠️ Nessuna delle categorie previste è presente nel foglio 'Dashboard'.")
-    else:
-        df_valori = df_dash.drop(columns=["Total"])
-        df_valori = df_valori.loc[categorie_presenti]
-        df_valori = df_valori.transpose()
- 
-        st.subheader("📊 Andamento mensile per categoria")
+
+    # Grafico andamento
+    categorie_grafico = ["Entrate", "Uscite necessarie", "Uscite variabili", "Risparmio mese", "Risparmio cumulato"]
+    presenti = [cat for cat in categorie_grafico if cat in df_pivot.index]
+    if presenti:
+        df_grafico = df_pivot.loc[presenti].drop(columns=["Total"], errors="ignore").transpose()
         fig, ax = plt.subplots(figsize=(12, 6))
-        df_valori.plot(kind="bar", ax=ax)
+        df_grafico.plot(kind="bar", ax=ax)
         ax.set_ylabel("Importo (€)")
         ax.set_xlabel("Mese")
         ax.set_title("Entrate, Uscite e Risparmi per mese")
         ax.legend(title="Categoria")
         plt.xticks(rotation=45)
         st.pyplot(fig)
+    else:
+        st.warning("⚠️ Nessuna categoria utile trovata per il grafico.")
+

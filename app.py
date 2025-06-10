@@ -89,8 +89,7 @@ elif vista == "Riepilogo mensile":
     st.dataframe(df_formattato, use_container_width=True, hide_index=True)
  
 # === VISTA 3: DASHBOARD ===
- 
-elif vista == "Dashboard":
+ elif vista == "Dashboard":
     st.title("📈 Dashboard")
 
     df_riepilogo = carica_riepilogo()
@@ -111,10 +110,11 @@ elif vista == "Dashboard":
         ],
     }
 
-    # Calcolo delle macrocategorie
+    # Calcolo macrocategorie
     df_dashboard = pd.DataFrame()
     for macro, sotto in categorie.items():
-        df_dashboard.loc[macro] = df_riepilogo.loc[sotto].sum()
+        presenti = [s for s in sotto if s in df_riepilogo.index]
+        df_dashboard.loc[macro] = df_riepilogo.loc[presenti].sum()
 
     # Risparmio mese = Entrate - (Uscite necessarie + Uscite variabili)
     df_dashboard.loc["Risparmio mese"] = (
@@ -136,7 +136,7 @@ elif vista == "Dashboard":
     st.subheader("📊 Tabella riepilogo")
     st.dataframe(df_formattato, use_container_width=True, hide_index=True)
 
-    # Grafico
+    # Grafico (solo 5 macrocategorie)
     df_valori = df_dashboard.transpose()[[
         "Entrate", "Uscite necessarie", "Uscite variabili", "Risparmio mese", "Risparmio cumulato"
     ]]
@@ -149,3 +149,4 @@ elif vista == "Dashboard":
     ax.legend(title="Categoria")
     plt.xticks(rotation=45)
     st.pyplot(fig)
+

@@ -50,6 +50,20 @@ def carica_dashboard():
     df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
     df["Total"] = df.get("Total", pd.Series(0))  # Se manca "Total", metti 0
     return df
+
+# --- Funzione per caricare i tag da "Riepilogo 2025" (prima colonna) ---
+@st.cache_data
+def carica_tag_da_riepilogo():
+    df_riepilogo = pd.read_excel(EXCEL_PATH, sheet_name="Riepilogo 2025", index_col=0)
+    # I tag sono gli indici (riga), quindi li prendiamo come lista
+    return list(df_riepilogo.index)
+
+# --- Funzione per salvare i dati modificati su Excel ---
+def salva_spese_modificate(df):
+    # Carica file Excel completo
+    with pd.ExcelWriter(EXCEL_PATH, mode='a', if_sheet_exists='replace') as writer:
+        df.to_excel(writer, sheet_name="Spese 2025", index=False, header=True, startrow=1)
+    st.success("Modifiche salvate con successo!")
  
 def formatta_euro(val):
     return f"€ {val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -64,30 +78,54 @@ vista = st.sidebar.radio("Scegli una vista:", ["Spese dettagliate", "Riepilogo m
 if vista == "Spese dettagliate":
     st.title("📌 Spese Dettagliate")
 
-    # Carica tutto il foglio "Spese 2025" SENZA modifiche e pulizie
+    # Carica dati e tag
     df_spese = pd.read_excel(EXCEL_PATH, sheet_name="Spese 2025", header=[1])
-    df_spese = df_spese.loc[:, ~df_spese.columns.str.contains('^Unnamed')]  # elimina colonne vuote
+    df_spese = df_spese.loc[:, ~df_spese.columns.str.contains('^Unnamed')]
 
-    # Filtro base per ogni colonna (opzionale)
-    st.write("### Filtra la tabella (facoltativo)")
+    tag_options = carica_tag_da_riepilogo()
+
+    # Filtri base (opzionali)
     filtro_testo = st.text_input("Filtra per 'Testo'")
-    filtro_tag = st.multiselect("Filtra per 'Tag'", options=df_spese["Tag"].dropna().unique())
-    filtro_categoria = st.multiselect("Filtra per 'Categoria' (se presente)", options=df_spese.columns[df_spese.columns.str.contains("Categoria")])
+    filtro_tag = st.multiselect("Filtra per 'Tag'", options=tag_options, default=tag_options)
 
     df_filtrato = df_spese.copy()
-
     if filtro_testo:
         df_filtrato = df_filtrato[df_filtrato["Testo"].str.contains(filtro_testo, case=False, na=False)]
     if filtro_tag:
         df_filtrato = df_filtrato[df_filtrato["Tag"].isin(filtro_tag)]
 
-    # Mostra tabella modificabile con editor integrato
-    st.write("### Tabella modificabile")
-    edited_df = st.data_editor(df_filtrato, use_container_width=True)
+    # Prepara opzioni per dropdown nella colonna 'Tag'
+    # Streamlit 1.24+ permette opzioni di dropdown per st.data_editor via il parametro 'column_config'
+    from streamlit.data_editor import GridOptionsBuilder, GridUpdateMode  # se vuoi griglia avanzata, ma non sempre serve
 
-    # Qui edited_df è il DataFrame con le modifiche fatte dall'utente
-    # Se vuoi, puoi aggiungere qui codice per salvare edited_df da qualche parte o usarlo per altri calcoli
+    # Configurazione dropdown per colonna Tag
+    # La sintassi aggiornata è tramite column_config (Streamlit 1.24+)
+    # Usa st.data_editor con column_config
 
+    from streamlit import data_editor
+    # Definisco la configurazione per colonna Tag con dropdown
+    col_config = {
+        "Tag": st.column_config.SelectboxColumn(
+            "Tag",
+            options=tag_options,
+            help="Seleziona il Tag da elenco"
+        )
+    }
+
+    # Mostra tabella modificabile con filtro e dropdown su Tag
+    edited_df = st.data_editor(
+        df_filtrato,
+        use_container_width=True,
+        column_config=col_config,
+        num_rows="dynamic"  # permette aggiungere o rimuovere righe
+    )
+
+    # Bottone per salvare le modifiche
+    if st.button("💾 Salva modifiche"):
+        try:
+            salva_spese_modificate(edited_df)
+        except Exception as e:
+            st.error(f"Errore nel salvataggio: {e}")
  
 # === VISTA 2: RIEPILOGO MENSILE ===
  

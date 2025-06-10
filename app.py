@@ -22,7 +22,7 @@ scarica_excel_da_drive()
 
 @st.cache_data
 def carica_spese():
-    # Carica il foglio 'Spese 2025' del file Excel
+    # Carica il foglio 'Spese 2025' del file Excel e assicurati che le intestazioni siano correttamente settate
     df = pd.read_excel(EXCEL_PATH, sheet_name="Spese 2025", header=1)
     df = df.loc[:, ~df.columns.str.contains('^Unnamed')]  # Rimuove le colonne non nominate
     df = df.dropna(subset=["Valore", "Tag"])  # Rimuove le righe senza 'Valore' o 'Tag'
@@ -64,6 +64,7 @@ if vista == "Spese dettagliate":
     # Creiamo una versione modificabile della tabella
     edited_df = df_spese.copy()
 
+    # Mostra la tabella con i valori originali
     for index, row in edited_df.iterrows():
         # Permetti di modificare il valore
         new_value = st.number_input(f"Modifica il valore per {row['Tag']} (riga {index + 1})", 

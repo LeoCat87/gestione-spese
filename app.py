@@ -21,7 +21,7 @@ scarica_excel_da_drive()
 
 @st.cache_data
 def carica_spese():
-    # Carica il foglio 'Spese 2025' del file Excel e assicurati che le intestazioni siano correttamente settate
+    # Carica il foglio 'Spese 2025' dal file Excel
     df = pd.read_excel(EXCEL_PATH, sheet_name="Spese 2025", header=1)
     df = df.loc[:, ~df.columns.str.contains('^Unnamed')]  # Rimuove le colonne non nominate
     df = df.reset_index(drop=True)
@@ -68,28 +68,12 @@ if vista == "Spese dettagliate":
     # Crea una copia modificabile dei dati
     edited_df = df_spese.copy()
 
-    # Creare una lista per le nuove intestazioni delle colonne: "Testo", "Valore", "Tag" per ogni mese
-    mesi = df_spese.columns[1:].to_list()  # Ignora la colonna 'Testo' per i mesi
-    new_columns = []
-    for mese in mesi:
-        new_columns.append(f"{mese}_Testo")
-        new_columns.append(f"{mese}_Valore")
-        new_columns.append(f"{mese}_Tag")
-
-    # Verifica che il numero di colonne corrisponda al numero previsto
-    expected_column_count = 2 + len(new_columns)  # 'Testo' e 'Tag' più le colonne per ogni mese (Testo, Valore, Tag)
-    
-    # Generiamo il DataFrame che ha la struttura desiderata
-    edited_df = pd.concat([df_spese[["Testo", "Tag"]], df_spese[mesi]], axis=1)
-    
-    # Aggiungiamo le intestazioni
-    edited_df.columns = ["Testo", "Tag"] + new_columns  # Cambia le intestazioni delle colonne
-
     # Usa st.data_editor per permettere la modifica della tabella (compreso il Tag tramite il menu a tendina)
     edited_df = st.data_editor(
         edited_df,
         column_config={
             "Testo": st.column_config.TextColumn("Descrizione"),  # Modificabile come testo
+            "Valore": st.column_config.NumberColumn("Importo (€)", format="€ {value:,.2f}"),  # Modificabile come numero
             "Tag": st.column_config.SelectboxColumn("Categoria", options=tag_options)  # Menu a tendina per il Tag
         },
         use_container_width=True

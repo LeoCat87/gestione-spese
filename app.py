@@ -84,17 +84,9 @@ if vista == "Spese dettagliate":
  
 elif vista == "Riepilogo mensile":
     st.title("📊 Riepilogo Mensile per Tag")
-    df_riepilogo = carica_riepilogo()
-    df_formattato = df_riepilogo.applymap(lambda x: formatta_euro(x) if isinstance(x, (int, float)) else x)
-    st.dataframe(df_formattato, use_container_width=True, hide_index=True)
- 
-# === VISTA 3: DASHBOARD ===
-elif vista == "Dashboard":
-    st.title("📈 Dashboard")
 
     df_riepilogo = carica_riepilogo()
 
-    # === Mappa tag a macrocategorie ===
     mappa_macrocategorie = {
         "Entrate": ["Stipendio", "Affitto Savoldo 4 + generico"],
         "Uscite necessarie": [
@@ -109,11 +101,55 @@ elif vista == "Dashboard":
         ]
     }
 
-    # Inizializza il DataFrame con le colonne (mesi) corrette
+    righe_finali = []
+
+    for categoria, tag_list in mappa_macrocategorie.items():
+        intestazione = pd.Series([None] * len(df_riepilogo.columns), index=df_riepilogo.columns, name=categoria)
+        righe_finali.append(intestazione)
+
+        for tag in tag_list:
+            if tag in df_riepilogo.index:
+                riga = df_riepilogo.loc[tag]
+                riga.name = tag
+                righe_finali.append(riga)
+
+    df_riepilogo_cat = pd.DataFrame(righe_finali)
+
+    # Formatta i valori in euro, lascia vuoto le righe intestazione
+    df_formattato = df_riepilogo_cat.copy()
+    for col in df_formattato.columns:
+        df_formattato[col] = df_formattato[col].apply(
+            lambda x: formatta_euro(x) if pd.notnull(x) and isinstance(x, (int, float)) else ""
+        )
+
+    st.dataframe(df_formattato, use_container_width=True, hide_index=False)
+
+ 
+# === VISTA 3: DASHBOARD ===
+elif vista == "Dashboard":
+    st.title("📈 Dashboard")
+
+    df_riepilogo = carica_riepilogo()
+
+    # Mappa tag a macrocategorie (stessa che usi tu, aggiorna se serve)
+    mappa_macrocategorie = {
+        "Entrate": ["Stipendio", "Affitto Savoldo 4 + generico"],
+        "Uscite necessarie": [
+            "PAC Investimenti", "Donazioni (StC, Unicef, Greenpeace)", "Mutuo", "Luce&Gas",
+            "Internet/Telefono", "Mezzi", "Spese condominiali", "Spese comuni",
+            "Auto (benzina, noleggio, pedaggi, parcheggi)", "Spesa cibo", "Tari", "Unobravo"
+        ],
+        "Uscite variabili": [
+            "Amazon", "Bolli governativi", "Farmacia/Visite", "Food Delivery", "Generiche", "Multa",
+            "Uscite (Pranzi,Cena,Apericena,Pub,etc)", "Prelievi", "Regali", "Sharing (auto, motorino, bici)",
+            "Shopping (vestiti, mobili,...)", "Stireria", "Viaggi (treno, aereo, hotel, attrazioni, concerti, cinema)"
+        ]
+    }
+
     mesi = df_riepilogo.columns
     df_macrocategorie = pd.DataFrame(columns=mesi)
 
-    # Calcola i totali per ogni macrocategoria
+    # Calcola i totali per ogni macrocategoria aggregando i tag dal riepilogo
     for macro, sottotag in mappa_macrocategorie.items():
         tag_presenti = [t for t in sottotag if t in df_riepilogo.index]
         if tag_presenti:
@@ -122,32 +158,29 @@ elif vista == "Dashboard":
             somma = pd.Series([0] * len(mesi), index=mesi)
         df_macrocategorie.loc[macro] = somma
 
-    # Calcola risparmio mese
+    # Calcola Risparmio mese e Risparmio cumulato
     df_macrocategorie.loc["Risparmio mese"] = (
         df_macrocategorie.loc["Entrate"]
         - df_macrocategorie.loc["Uscite necessarie"]
         - df_macrocategorie.loc["Uscite variabili"]
     )
-
-    # Calcola risparmio cumulato
     df_macrocategorie.loc["Risparmio cumulato"] = df_macrocategorie.loc["Risparmio mese"].cumsum()
 
-    # === Tabella formattata ===
-    df_tabella = df_macrocategorie.copy().reset_index().rename(columns={"index": "Voce"})
+    # Formattazione tabella
+    df_tabella = df_macrocategorie.reset_index().rename(columns={"index": "Voce"})
     for col in df_tabella.columns[1:]:
         df_tabella[col] = df_tabella[col].apply(lambda x: formatta_euro(x) if pd.notnull(x) else "€ 0,00")
 
     st.subheader("📊 Tabella riepilogo")
     st.dataframe(df_tabella, use_container_width=True, hide_index=True)
 
-    # === Grafico ===
-df_grafico = df_macrocategorie.transpose()
-st.subheader("📈 Andamento mensile")
-fig, ax = plt.subplots(figsize=(12, 6))
-df_grafico.plot(kind='bar', ax=ax)
-ax.set_title("Entrate, Uscite e Risparmio per mese")
-ax.set_xlabel("Mese")
-ax.set_ylabel("Importo (€)")
-plt.xticks(rotation=45)
-st.pyplot(fig)
-
+    # Grafico a barre
+    df_grafico = df_macrocategorie.transpose()
+    st.subheader("📈 Andamento mensile")
+    fig, ax = plt.subplots(figsize=(12, 6))
+    df_grafico.plot(kind="bar", ax=ax)
+    ax.set_title("Entrate, Uscite e Risparmio per mese")
+    ax.set_xlabel("Mese")
+    ax.set_ylabel("Importo (€)")
+    plt.xticks(rotation=45)
+    st.pyplot(fig)

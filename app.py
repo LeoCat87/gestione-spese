@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import gdown
 import openpyxl
+import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="Gestione Spese", layout="wide")
 

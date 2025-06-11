@@ -54,46 +54,38 @@ st.sidebar.title("📁 Navigazione")
 vista = st.sidebar.radio("Scegli una vista:", ["Spese dettagliate", "Riepilogo mensile", "Dashboard"])
 
 # === VISTA 1: SPESE 2025 ===
+# === VISTA 1: SPESE 2025 ===
 if vista == "Spese dettagliate":
     st.title("📌 Spese 2025")
 
-    # Carica i dati dal file Excel
+    # Carica i dati delle spese
     df_spese = carica_spese()
 
-    # === VISUALIZZARE E MODIFICARE I DATI ===
-    st.subheader("📅 Modifica le Spese")
+    # Carica i tag disponibili dal foglio 'Riepilogo 2025'
+    df_riepilogo = carica_riepilogo()
+    tag_options = df_riepilogo.index.tolist()
 
-    # Definisci i tag possibili per la selezione
-    tag_options = ["Stipendio", "Affitto", "Spesa", "Bollette", "Trasporti", "Assicurazione", "Generiche"]
+    st.subheader("📝 Modifica le spese")
 
-    # Crea una copia modificabile dei dati
-    edited_df = df_spese.copy()
-
-    # Aggiungi una colonna "Tag" con un menu a tendina per ogni mese
-    edited_df["Tag"] = edited_df["Tag"].apply(lambda x: st.selectbox("Scegli Categoria", tag_options, index=tag_options.index(x) if x in tag_options else 0))
-
-    # Usa st.data_editor per permettere la modifica della tabella
+    # Tabella modificabile
     edited_df = st.data_editor(
-        edited_df,
+        df_spese,
         column_config={
-            "Testo": st.column_config.TextColumn("Descrizione"),  # Modificabile come testo
-            "Valore": st.column_config.NumberColumn("Importo (€)", format="€ {value:,.2f}"),  # Modificabile come numero
-            "Tag": st.column_config.SelectboxColumn("Categoria", options=tag_options)  # Menu a tendina per il Tag
+            "Testo": st.column_config.TextColumn("Descrizione"),
+            "Valore": st.column_config.NumberColumn("Importo (€)", format="€ {value:,.2f}"),
+            "Tag": st.column_config.SelectboxColumn("Categoria", options=tag_options)
         },
         use_container_width=True
     )
 
-    # === SALVARE LE MODIFICHE ===
-    if st.button("Salva le modifiche"):
-        # Usa openpyxl per aggiornare il file Excel
+    # Bottone di salvataggio
+    if st.button("💾 Salva le modifiche"):
         try:
-            with pd.ExcelWriter(EXCEL_PATH, engine="openpyxl", mode='a') as writer:
-                # Rimuovi il foglio esistente prima di aggiungere i dati modificati
-                writer.book.remove(writer.book["Spese 2025"])
+            with pd.ExcelWriter(EXCEL_PATH, engine="openpyxl", mode="w") as writer:
                 edited_df.to_excel(writer, sheet_name="Spese 2025", index=False)
             st.success("Modifiche salvate con successo!")
         except Exception as e:
-            st.error(f"Errore nel salvataggio del file Excel: {str(e)}")
+            st.error(f"Errore nel salvataggio: {e}")
 
 # === VISTA 2: RIEPILOGO MENSILE ===
 elif vista == "Riepilogo mensile":

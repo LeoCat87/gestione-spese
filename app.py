@@ -60,14 +60,24 @@ if vista == "Spese dettagliate":
     # Carica i dati delle spese
     df_spese = carica_spese()
 
-    # Carica i tag dal foglio 'Riepilogo 2025'
-    df_riepilogo = carica_riepilogo()
-    tag_riepilogo = df_riepilogo.index.tolist()
-    tag_presenti_nel_df = df_spese["Tag"].unique().tolist()
-    tag_options = sorted(list(set(tag_riepilogo + tag_presenti_nel_df)))
+    # Forza la colonna 'Tag' a stringa (obbligatorio per funzionare con SelectboxColumn)
+    df_spese["Tag"] = df_spese["Tag"].astype(str)
+
+    # Definisci i tag disponibili (sempre uguali)
+    tag_options = [
+        "Stipendio", "Affitto", "Spesa", "Bollette", "Trasporti",
+        "Assicurazione", "Generiche"
+    ]
+
+    # Verifica che tutti i valori in df_spese["Tag"] siano contenuti tra le opzioni
+    valori_non_val = [val for val in df_spese["Tag"].unique() if val not in tag_options]
+    if valori_non_val:
+        st.warning(f"I seguenti tag non sono validi e saranno sostituiti: {valori_non_val}")
+        df_spese["Tag"] = df_spese["Tag"].apply(lambda x: x if x in tag_options else tag_options[0])
 
     st.subheader("📝 Modifica le spese")
 
+    # Tabella modificabile con menu a tendina per la colonna Tag
     edited_df = st.data_editor(
         df_spese,
         column_config={
@@ -78,6 +88,7 @@ if vista == "Spese dettagliate":
         use_container_width=True
     )
 
+    # Bottone per salvare
     if st.button("💾 Salva le modifiche"):
         try:
             with pd.ExcelWriter(EXCEL_PATH, engine="openpyxl", mode="w") as writer:
@@ -85,6 +96,7 @@ if vista == "Spese dettagliate":
             st.success("Modifiche salvate con successo!")
         except Exception as e:
             st.error(f"Errore nel salvataggio: {e}")
+
 
 # === VISTA 2: RIEPILOGO MENSILE ===
 elif vista == "Riepilogo mensile":

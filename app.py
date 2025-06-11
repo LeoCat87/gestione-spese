@@ -54,20 +54,20 @@ st.sidebar.title("📁 Navigazione")
 vista = st.sidebar.radio("Scegli una vista:", ["Spese dettagliate", "Riepilogo mensile", "Dashboard"])
 
 # === VISTA 1: SPESE 2025 ===
-# === VISTA 1: SPESE 2025 ===
 if vista == "Spese dettagliate":
     st.title("📌 Spese 2025")
 
     # Carica i dati delle spese
     df_spese = carica_spese()
 
-    # Carica i tag disponibili dal foglio 'Riepilogo 2025'
+    # Carica i tag dal foglio 'Riepilogo 2025'
     df_riepilogo = carica_riepilogo()
-    tag_options = df_riepilogo.index.tolist()
+    tag_riepilogo = df_riepilogo.index.tolist()
+    tag_presenti_nel_df = df_spese["Tag"].unique().tolist()
+    tag_options = sorted(list(set(tag_riepilogo + tag_presenti_nel_df)))
 
     st.subheader("📝 Modifica le spese")
 
-    # Tabella modificabile
     edited_df = st.data_editor(
         df_spese,
         column_config={
@@ -78,7 +78,6 @@ if vista == "Spese dettagliate":
         use_container_width=True
     )
 
-    # Bottone di salvataggio
     if st.button("💾 Salva le modifiche"):
         try:
             with pd.ExcelWriter(EXCEL_PATH, engine="openpyxl", mode="w") as writer:

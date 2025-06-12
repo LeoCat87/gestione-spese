@@ -61,6 +61,9 @@ if vista == "Spese dettagliate":
     df_spese = carica_spese()
     st.write("📋 Tag trovati nel file Excel:")
     st.write(df_spese["Tag"].unique())
+    st.write("🔎 Colonne lette dal foglio 'Spese 2025':")
+    st.write(df_spese.columns.tolist())
+
 
 
     # Forza la colonna 'Tag' a stringa (obbligatorio per funzionare con SelectboxColumn)

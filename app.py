@@ -183,6 +183,7 @@ elif vista == "Dashboard":
 
     df_spese = carica_spese()
 
+    # Macrocategorie come nel riepilogo
     mappa_macrocategorie = {
         "Entrate": ["Stipendio", "Affitto Savoldo 4 + generico"],
         "Uscite necessarie": [
@@ -197,7 +198,6 @@ elif vista == "Dashboard":
         ]
     }
 
-    # Usa nomi mesi in minuscolo per coerenza con i dati
     mesi_ordinati = [
         "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
         "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"
@@ -208,20 +208,18 @@ elif vista == "Dashboard":
     df_spese["Tag"] = df_spese["Tag"].str.strip()
     df_spese = df_spese[df_spese["Mese"].isin(mesi_ordinati)]
 
-    # Riepilogo per tag e mese
+    # === 1. Riepilogo dinamico per tag e mese ===
     df_riepilogo = df_spese.groupby(["Tag", "Mese"])["Valore"].sum().unstack(fill_value=0)
+    df_riepilogo = df_riepilogo[[m for m in mesi_ordinati if m in df_riepilogo.columns]]
 
-    # Seleziona solo mesi presenti nei dati
-    mesi_presenti = [m for m in mesi_ordinati if m in df_riepilogo.columns]
-    df_riepilogo = df_riepilogo[mesi_presenti]
+    # === 2. Dashboard aggregata per macrocategoria ===
+    df_macrocategorie = pd.DataFrame()
+    for macro, tags in mappa_macrocategorie.items():
+        tags_presenti = [t for t in tags if t in df_riepilogo.index]
+        df_macro = df_riepilogo.loc[tags_presenti].sum() if tags_presenti else pd.Series(0, index=df_riepilogo.columns)
+        df_macrocategorie.loc[macro] = df_macro
 
-    # Aggregazione per macrocategorie
-    df_macrocategorie = pd.DataFrame(columns=mesi_presenti)
-    for macro, sottotag in mappa_macrocategorie.items():
-        tag_presenti = [t for t in sottotag if t in df_riepilogo.index]
-        somma = df_riepilogo.loc[tag_presenti].sum() if tag_presenti else pd.Series([0] * len(mesi_presenti), index=mesi_presenti)
-        df_macrocategorie.loc[macro] = somma
-
+    # === 3. Calcolo risparmio ===
     df_macrocategorie.loc["Risparmio mese"] = (
         df_macrocategorie.loc["Entrate"]
         - df_macrocategorie.loc["Uscite necessarie"]
@@ -229,14 +227,15 @@ elif vista == "Dashboard":
     )
     df_macrocategorie.loc["Risparmio cumulato"] = df_macrocategorie.loc["Risparmio mese"].cumsum()
 
-    # Calcolo Media YTD (fino al mese scorso)
+    # === 4. Media YTD ===
     from datetime import datetime
     mese_attuale = datetime.today().month
-    mesi_ytd = mesi_presenti[:mese_attuale - 1]
-    medie_ytd = df_macrocategorie[mesi_ytd].mean(axis=1)
-    df_macrocategorie["Media YTD"] = medie_ytd
+    mesi_ytd = mesi_ordinati[:mese_attuale - 1]
+    mesi_ytd = [m for m in mesi_ytd if m in df_macrocategorie.columns]
 
-    # Tabella formattata
+    df_macrocategorie["Media YTD"] = df_macrocategorie[mesi_ytd].mean(axis=1)
+
+    # === 5. Tabella formattata ===
     df_tabella = df_macrocategorie.reset_index().rename(columns={"index": "Voce"})
     for col in df_tabella.columns[1:]:
         df_tabella[col] = df_tabella[col].apply(lambda x: formatta_euro(x) if pd.notnull(x) else "€ 0,00")
@@ -244,8 +243,8 @@ elif vista == "Dashboard":
     st.subheader("📊 Tabella riepilogo")
     st.dataframe(df_tabella, use_container_width=True, hide_index=True)
 
-    # Grafico
-    df_grafico = df_macrocategorie[mesi_presenti].transpose()
+    # === 6. Grafico a barre ===
+    df_grafico = df_macrocategorie[df_macrocategorie.columns.difference(["Media YTD"])].transpose()
     st.subheader("📈 Andamento mensile")
     fig, ax = plt.subplots(figsize=(12, 6))
     df_grafico.plot(kind="bar", ax=ax)

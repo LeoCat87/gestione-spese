@@ -76,16 +76,13 @@ if vista == "Spese dettagliate":
     df_spese = carica_spese()
     df_riepilogo = carica_riepilogo()
 
-    # Estrai i tag validi (escludendo intestazioni di macrocategorie)
     macrocategorie = ["Entrate", "Uscite necessarie", "Uscite variabili"]
     tag_options = [tag for tag in df_riepilogo.index.tolist() if tag not in macrocategorie]
 
-    # Pulisci
     df_spese["Tag"] = df_spese["Tag"].str.strip()
     df_spese["Mese"] = df_spese["Mese"].str.strip()
     df_spese["Tag"] = df_spese["Tag"].apply(lambda x: x if x in tag_options else "")
 
-    # Mostra tutti i mesi
     mesi_disponibili = [
         "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
         "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
@@ -133,72 +130,67 @@ if vista == "Spese dettagliate":
                 st.error(f"Errore nella lettura del file Excel: {e}")
 
         elif file_caricato.type == "application/pdf":
-    try:
-        import PyPDF2
-        import re
-        from datetime import datetime
+            try:
+                import PyPDF2
+                import re
+                from datetime import datetime
 
-        reader = PyPDF2.PdfReader(file_caricato)
-        testo_completo = ""
-        for page in reader.pages:
-            testo_completo += page.extract_text() + "\n"
+                reader = PyPDF2.PdfReader(file_caricato)
+                testo_completo = ""
+                for page in reader.pages:
+                    testo_completo += page.extract_text() + "\n"
 
-        righe = testo_completo.splitlines()
+                righe = testo_completo.splitlines()
 
-        movimenti = []
-        data_corrente = None
-        descrizione = ""
-
-        pattern_data = re.compile(r"\d{1,2} [a-zà]+ 2025", re.IGNORECASE)
-        pattern_importo = re.compile(r"[-−–]?\d{1,3}(?:[\.,]\d{2})$")
-
-        for i, riga in enumerate(righe):
-            riga = riga.strip()
-
-            # Se troviamo una data, inizia un nuovo blocco
-            if pattern_data.match(riga.lower()):
-                data_corrente = riga.strip()
+                movimenti = []
+                data_corrente = None
                 descrizione = ""
-                continue
 
-            # Se troviamo un importo e c'è una data in memoria
-            if pattern_importo.search(riga) and data_corrente:
-                try:
-                    valore_str = pattern_importo.search(riga).group()
-                    valore = float(valore_str.replace(",", ".").replace("−", "-").replace("–", "-"))
+                pattern_data = re.compile(r"\d{1,2} [a-zà]+ 2025", re.IGNORECASE)
+                pattern_importo = re.compile(r"[-−–]?\d{1,3}(?:[\.,]\d{2})$")
 
-                    data = datetime.strptime(data_corrente, "%d %B %Y")
-                    mese = data.strftime("%B").capitalize()
+                for i, riga in enumerate(righe):
+                    riga = riga.strip()
 
-                    testo_descrizione = descrizione.strip() or "Senza descrizione"
-                    movimenti.append({
-                        "Testo": testo_descrizione,
-                        "Valore": valore,
-                        "Tag": "",
-                        "Mese": mese
-                    })
+                    if pattern_data.match(riga.lower()):
+                        data_corrente = riga.strip()
+                        descrizione = ""
+                        continue
 
-                    # reset per prossimo blocco
-                    data_corrente = None
-                    descrizione = ""
+                    if pattern_importo.search(riga) and data_corrente:
+                        try:
+                            valore_str = pattern_importo.search(riga).group()
+                            valore = float(valore_str.replace(",", ".").replace("−", "-").replace("–", "-"))
 
-                except Exception:
-                    continue
-            elif data_corrente:
-                # accumula righe di descrizione finché non arriva l'importo
-                descrizione += " " + riga
+                            data = datetime.strptime(data_corrente, "%d %B %Y")
+                            mese = data.strftime("%B").capitalize()
 
-        if movimenti:
-            df_upload = pd.DataFrame(movimenti)
-            df_spese = pd.concat([df_spese, df_upload], ignore_index=True)
-            st.success(f"{len(df_upload)} spese importate dal PDF.")
-        else:
-            st.warning("Nessuna spesa trovata nel PDF.")
+                            testo_descrizione = descrizione.strip() or "Senza descrizione"
+                            movimenti.append({
+                                "Testo": testo_descrizione,
+                                "Valore": valore,
+                                "Tag": "",
+                                "Mese": mese
+                            })
 
-    except Exception as e:
-        st.error(f"Errore nella lettura del PDF: {e}")
+                            data_corrente = None
+                            descrizione = ""
 
-    # Mostra e modifica solo le spese del mese selezionato
+                        except Exception:
+                            continue
+                    elif data_corrente:
+                        descrizione += " " + riga
+
+                if movimenti:
+                    df_upload = pd.DataFrame(movimenti)
+                    df_spese = pd.concat([df_spese, df_upload], ignore_index=True)
+                    st.success(f"{len(df_upload)} spese importate dal PDF.")
+                else:
+                    st.warning("Nessuna spesa trovata nel PDF.")
+
+            except Exception as e:
+                st.error(f"Errore nella lettura del PDF: {e}")
+
     df_filtrato = df_spese[df_spese["Mese"] == mese_selezionato][["Testo", "Valore", "Tag"]].reset_index(drop=True)
 
     st.subheader(f"📝 Modifica spese di {mese_selezionato}")
@@ -212,16 +204,14 @@ if vista == "Spese dettagliate":
         use_container_width=True
     )
 
-    # Aggiorna il DataFrame completo con le modifiche
     df_spese.loc[df_spese["Mese"] == mese_selezionato, ["Testo", "Valore", "Tag"]] = edited_df
 
     if st.button("💾 Salva tutte le modifiche"):
         try:
-            mesi = mesi_disponibili
             blocchi = []
             max_righe = 0
 
-            for mese in mesi:
+            for mese in mesi_disponibili:
                 mese_df = df_spese[df_spese["Mese"] == mese][["Testo", "Valore", "Tag"]].reset_index(drop=True)
                 max_righe = max(max_righe, len(mese_df))
                 blocchi.append(mese_df)

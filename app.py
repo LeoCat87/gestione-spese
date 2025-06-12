@@ -73,6 +73,7 @@ vista = st.sidebar.radio("Scegli una vista:", ["Spese dettagliate", "Riepilogo m
 if vista == "Spese dettagliate":
     st.title("📌 Spese 2025")
 
+    EXCEL_SALVATO = "Spese_Leo_app.xlsx"
     df_spese = carica_spese()
     df_riepilogo = carica_riepilogo()
 
@@ -89,7 +90,6 @@ if vista == "Spese dettagliate":
     ]
     mese_selezionato = st.selectbox("📅 Seleziona mese", mesi_disponibili)
 
-    # === Mostra tabella filtrata ===
     df_filtrato = df_spese[df_spese["Mese"] == mese_selezionato][["Testo", "Valore", "Tag"]].reset_index(drop=True)
     st.subheader(f"📝 Modifica spese di {mese_selezionato}")
     edited_df = st.data_editor(
@@ -225,30 +225,22 @@ if vista == "Spese dettagliate":
 
     if st.button("💾 Salva tutte le modifiche"):
         try:
-            blocchi = []
-            max_righe = 0
-
-            for mese in mesi_disponibili:
-                mese_df = df_spese[df_spese["Mese"] == mese][["Testo", "Valore", "Tag"]].reset_index(drop=True)
-                max_righe = max(max_righe, len(mese_df))
-                blocchi.append(mese_df)
-
-            for i in range(len(blocchi)):
-                righe_mancanti = max_righe - len(blocchi[i])
-                if righe_mancanti > 0:
-                    blocchi[i] = pd.concat([
-                        blocchi[i],
-                        pd.DataFrame([["", None, ""]] * righe_mancanti, columns=["Testo", "Valore", "Tag"])
-                    ])
-
-            df_ricostruito = pd.concat(blocchi, axis=1)
-
-            with pd.ExcelWriter(EXCEL_PATH, engine="openpyxl", mode="w") as writer:
-                df_ricostruito.to_excel(writer, sheet_name="Spese 2025", index=False)
-
-            st.success("Tutte le modifiche sono state salvate!")
+            df_spese.to_excel(EXCEL_SALVATO, index=False)
+            st.success(f"File salvato come {EXCEL_SALVATO}!")
         except Exception as e:
             st.error(f"Errore nel salvataggio: {e}")
+
+    # === Pulsante per scaricare il file aggiornato ===
+    import io
+    buffer = io.BytesIO()
+    df_spese.to_excel(buffer, index=False, engine="openpyxl")
+    buffer.seek(0)
+    st.download_button(
+        label="⬇️ Scarica spese aggiornate",
+        data=buffer,
+        file_name=EXCEL_SALVATO,
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 # === VISTA 2: RIEPILOGO MENSILE ===
 elif vista == "Riepilogo mensile":

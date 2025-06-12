@@ -245,12 +245,7 @@ elif vista == "Dashboard":
         df_grouped = df_categoria.groupby("Mese")["Valore"].sum()
         df_macrocategorie.loc[categoria] = df_grouped
 
-        mesi_ordinati = [
-        "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
-        "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"
-    ]
-    df_macrocategorie = df_macrocategorie.reindex(columns=mesi_ordinati, fill_value=0)
-
+    df_macrocategorie = df_macrocategorie.fillna(0)
     df_macrocategorie.loc["Risparmio mese"] = (
         df_macrocategorie.loc["Entrate"]
         - df_macrocategorie.loc["Uscite necessarie"]

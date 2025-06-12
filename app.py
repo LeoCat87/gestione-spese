@@ -24,7 +24,7 @@ scarica_excel_da_drive()
 def carica_spese():
     df_raw = pd.read_excel(EXCEL_PATH, sheet_name="Spese 2025", header=1)
     df_raw = df_raw.loc[:, ~df_raw.columns.str.contains("^Unnamed")]
-    
+
     mesi = [
         "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
         "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
@@ -39,14 +39,14 @@ def carica_spese():
             sotto_df.columns = ["Testo", "Valore", "Tag"]
             sotto_df = sotto_df.dropna(how="all", subset=["Valore", "Testo", "Tag"])
             sotto_df["Mese"] = mese
+            sotto_df["Tag"] = sotto_df["Tag"].fillna('').astype(str).str.strip()
+            sotto_df["Testo"] = sotto_df["Testo"].fillna('').astype(str).str.strip()
+            sotto_df["Valore"] = pd.to_numeric(sotto_df["Valore"], errors="coerce")
             records.append(sotto_df)
 
     df_finale = pd.concat(records, ignore_index=True)
-    df_finale["Valore"] = pd.to_numeric(df_finale["Valore"], errors="coerce")
-    df_finale["Tag"] = df_finale["Tag"].astype(str)
-    df_finale["Testo"] = df_finale["Testo"].astype(str)
-    
     return df_finale
+
 
 @st.cache_data
 def carica_riepilogo():
@@ -86,7 +86,7 @@ if vista == "Spese dettagliate":
         df_spese,
         column_config={
             "Testo": st.column_config.TextColumn("Descrizione"),
-            "Valore": st.column_config.NumberColumn("Importo (€)", format="€ {value:,.2f}"),
+            "Valore": st.column_config.NumberColumn("Importo (€)"),
             "Tag": st.column_config.SelectboxColumn("Categoria", options=tag_options),
             "Mese": st.column_config.TextColumn("Mese")
         },
@@ -95,31 +95,29 @@ if vista == "Spese dettagliate":
 
     if st.button("💾 Salva le modifiche"):
         try:
-            # Ricostruisci il formato originale a blocchi mensili
             mesi = [
                 "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
                 "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
             ]
 
-            # Crea un nuovo DataFrame vuoto
             blocchi = []
-
             max_righe = 0
+
             for mese in mesi:
                 mese_df = edited_df[edited_df["Mese"] == mese][["Testo", "Valore", "Tag"]].reset_index(drop=True)
                 max_righe = max(max_righe, len(mese_df))
                 blocchi.append(mese_df)
 
-            # Normalizza tutti i blocchi alla stessa lunghezza
             for i in range(len(blocchi)):
                 righe_mancanti = max_righe - len(blocchi[i])
                 if righe_mancanti > 0:
-                    blocchi[i] = pd.concat([blocchi[i], pd.DataFrame([["", "", ""]] * righe_mancanti, columns=["Testo", "Valore", "Tag"])])
+                    blocchi[i] = pd.concat([
+                        blocchi[i],
+                        pd.DataFrame([["", None, ""]] * righe_mancanti, columns=["Testo", "Valore", "Tag"])
+                    ])
 
-            # Concatenazione orizzontale
             df_ricostruito = pd.concat(blocchi, axis=1)
 
-            # Salva su Excel
             with pd.ExcelWriter(EXCEL_PATH, engine="openpyxl", mode="w") as writer:
                 df_ricostruito.to_excel(writer, sheet_name="Spese 2025", index=False)
 

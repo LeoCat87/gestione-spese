@@ -73,7 +73,6 @@ vista = st.sidebar.radio("Scegli una vista:", ["Spese dettagliate", "Riepilogo m
 if vista == "Spese dettagliate":
     st.title("📌 Spese 2025")
 
-    # Carica spese e riepilogo
     df_spese = carica_spese()
     df_riepilogo = carica_riepilogo()
 
@@ -81,26 +80,44 @@ if vista == "Spese dettagliate":
     macrocategorie = ["Entrate", "Uscite necessarie", "Uscite variabili"]
     tag_options = [tag for tag in df_riepilogo.index.tolist() if tag not in macrocategorie]
 
-    # Pulisci i tag nel DataFrame per allinearli alle opzioni
+    # Pulisci e normalizza
     df_spese["Tag"] = df_spese["Tag"].str.strip()
     df_spese["Tag"] = df_spese["Tag"].apply(lambda x: x if x in tag_options else tag_options[0])
+    df_spese["Mese"] = df_spese["Mese"].str.strip()
 
-    st.subheader("📝 Modifica le spese")
+    # Filtro per mese
+    mesi_disponibili = df_spese["Mese"].dropna().unique().tolist()
+    mese_selezionato = st.selectbox("📅 Seleziona mese", mesi_disponibili)
 
-    # Tabella modificabile
-    edited_df = st.data_editor(
-        df_spese,
-        column_config={
-            "Testo": st.column_config.TextColumn("Descrizione"),
-            "Valore": st.column_config.NumberColumn("Importo (€)"),
-            "Tag": st.column_config.SelectboxColumn("Categoria", options=tag_options),
-            "Mese": st.column_config.TextColumn("Mese")
-        },
-        use_container_width=True
-    )
+    df_filtrato = df_spese[df_spese["Mese"] == mese_selezionato][["Testo", "Valore", "Tag"]].reset_index(drop=True)
 
-    # Salvataggio
-    if st.button("💾 Salva le modifiche"):
+    st.subheader("➕ Aggiungi nuova spesa")
+
+    with st.form(key="aggiungi_spesa"):
+        nuovo_testo = st.text_input("Descrizione")
+        nuovo_valore = st.number_input("Importo (€)", step=0.01)
+        nuovo_tag = st.selectbox("Categoria", options=tag_options)
+        submitted = st.form_submit_button("Aggiungi")
+
+        if submitted and nuovo_testo and nuovo_valore != 0:
+            nuova_riga = {
+                "Testo": nuovo_testo,
+                "Valore": nuovo_valore,
+                "Tag": nuovo_tag,
+                "Mese": mese_selezionato
+            }
+            df_spese = pd.concat([df_spese, pd.DataFrame([nuova_riga])], ignore_index=True)
+
+            st.success("Spesa aggiunta!")
+
+            # Ricalcola il filtrato
+            df_filtrato = df_spese[df_spese["Mese"] == mese_selezionato][["Testo", "Valore", "Tag"]].reset_index(drop=True)
+
+    st.subheader("📋 Spese registrate")
+    st.dataframe(df_filtrato, use_container_width=True, hide_index=True)
+
+    # Bottone per salvare
+    if st.button("💾 Salva tutte le modifiche"):
         try:
             mesi = [
                 "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
@@ -111,7 +128,7 @@ if vista == "Spese dettagliate":
             max_righe = 0
 
             for mese in mesi:
-                mese_df = edited_df[edited_df["Mese"] == mese][["Testo", "Valore", "Tag"]].reset_index(drop=True)
+                mese_df = df_spese[df_spese["Mese"] == mese][["Testo", "Valore", "Tag"]].reset_index(drop=True)
                 max_righe = max(max_righe, len(mese_df))
                 blocchi.append(mese_df)
 
@@ -128,10 +145,9 @@ if vista == "Spese dettagliate":
             with pd.ExcelWriter(EXCEL_PATH, engine="openpyxl", mode="w") as writer:
                 df_ricostruito.to_excel(writer, sheet_name="Spese 2025", index=False)
 
-            st.success("Modifiche salvate con successo!")
-
+            st.success("Tutte le modifiche sono state salvate!")
         except Exception as e:
-            st.error(f"Errore nel salvataggio del file Excel: {str(e)}")
+            st.error(f"Errore nel salvataggio: {e}")
 
 # === VISTA 2: RIEPILOGO MENSILE ===
 elif vista == "Riepilogo mensile":

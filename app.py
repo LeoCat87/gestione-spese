@@ -86,7 +86,10 @@ if vista == "Spese dettagliate":
     df_spese["Mese"] = df_spese["Mese"].str.strip()
 
     # Filtro per mese
-    mesi_disponibili = df_spese["Mese"].dropna().unique().tolist()
+    mesi_disponibili = [
+    "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+    "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
+]
     mese_selezionato = st.selectbox("📅 Seleziona mese", mesi_disponibili)
 
     st.subheader("➕ Aggiungi nuova spesa")

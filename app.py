@@ -197,21 +197,29 @@ elif vista == "Dashboard":
         ]
     }
 
+    # Usa nomi mesi in minuscolo per coerenza con i dati
     mesi_ordinati = [
-        "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
-        "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
+        "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
+        "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"
     ]
 
+    # Pulizia
+    df_spese["Mese"] = df_spese["Mese"].str.lower().str.strip()
+    df_spese["Tag"] = df_spese["Tag"].str.strip()
     df_spese = df_spese[df_spese["Mese"].isin(mesi_ordinati)]
 
+    # Riepilogo per tag e mese
     df_riepilogo = df_spese.groupby(["Tag", "Mese"])["Valore"].sum().unstack(fill_value=0)
-    df_riepilogo = df_riepilogo[mesi_ordinati]
 
-    df_macrocategorie = pd.DataFrame(columns=mesi_ordinati)
+    # Seleziona solo mesi presenti nei dati
+    mesi_presenti = [m for m in mesi_ordinati if m in df_riepilogo.columns]
+    df_riepilogo = df_riepilogo[mesi_presenti]
 
+    # Aggregazione per macrocategorie
+    df_macrocategorie = pd.DataFrame(columns=mesi_presenti)
     for macro, sottotag in mappa_macrocategorie.items():
         tag_presenti = [t for t in sottotag if t in df_riepilogo.index]
-        somma = df_riepilogo.loc[tag_presenti].sum() if tag_presenti else pd.Series([0] * len(mesi_ordinati), index=mesi_ordinati)
+        somma = df_riepilogo.loc[tag_presenti].sum() if tag_presenti else pd.Series([0] * len(mesi_presenti), index=mesi_presenti)
         df_macrocategorie.loc[macro] = somma
 
     df_macrocategorie.loc["Risparmio mese"] = (
@@ -221,12 +229,14 @@ elif vista == "Dashboard":
     )
     df_macrocategorie.loc["Risparmio cumulato"] = df_macrocategorie.loc["Risparmio mese"].cumsum()
 
+    # Calcolo Media YTD (fino al mese scorso)
     from datetime import datetime
     mese_attuale = datetime.today().month
-    mesi_ytd = mesi_ordinati[:mese_attuale - 1]
+    mesi_ytd = mesi_presenti[:mese_attuale - 1]
     medie_ytd = df_macrocategorie[mesi_ytd].mean(axis=1)
     df_macrocategorie["Media YTD"] = medie_ytd
 
+    # Tabella formattata
     df_tabella = df_macrocategorie.reset_index().rename(columns={"index": "Voce"})
     for col in df_tabella.columns[1:]:
         df_tabella[col] = df_tabella[col].apply(lambda x: formatta_euro(x) if pd.notnull(x) else "€ 0,00")
@@ -234,7 +244,8 @@ elif vista == "Dashboard":
     st.subheader("📊 Tabella riepilogo")
     st.dataframe(df_tabella, use_container_width=True, hide_index=True)
 
-    df_grafico = df_macrocategorie[mesi_ordinati].transpose()
+    # Grafico
+    df_grafico = df_macrocategorie[mesi_presenti].transpose()
     st.subheader("📈 Andamento mensile")
     fig, ax = plt.subplots(figsize=(12, 6))
     df_grafico.plot(kind="bar", ax=ax)

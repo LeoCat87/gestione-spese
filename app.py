@@ -148,16 +148,21 @@ elif vista == "Riepilogo mensile":
     }
 
     mesi_ordinati = [
-        "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
-        "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
+        "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
+        "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"
     ]
 
-    df_spese["Mese"] = df_spese["Mese"].str.strip()
+    # Pulizia
+    df_spese["Mese"] = df_spese["Mese"].str.lower().str.strip()
     df_spese["Tag"] = df_spese["Tag"].str.strip()
     df_spese = df_spese[df_spese["Mese"].isin(mesi_ordinati)]
 
+    # Pivot per sommare per tag e mese
     df_riep = df_spese.groupby(["Tag", "Mese"])["Valore"].sum().unstack(fill_value=0)
-    df_riep = df_riep[mesi_ordinati]
+
+    # Prendi solo i mesi effettivamente presenti
+    mesi_presenti = [m for m in mesi_ordinati if m in df_riep.columns]
+    df_riep = df_riep[mesi_presenti]
 
     righe_finali = []
     for categoria, tag_list in macrocategorie.items():

@@ -39,7 +39,7 @@ def carica_spese():
             sotto_df.columns = ["Testo", "Valore", "Tag"]
             sotto_df = sotto_df.dropna(how="all", subset=["Valore", "Testo", "Tag"])
             sotto_df["Mese"] = mese
-            sotto_df["Tag"] = sotto_df["Tag"].fillna('').astype(str).str.strip()
+            sotto_df["Tag"] = sotto_df["Tag"].fillna('').astype(str).str.strip().str.capitalize()
             sotto_df["Testo"] = sotto_df["Testo"].fillna('').astype(str).str.strip()
             sotto_df["Valore"] = pd.to_numeric(sotto_df["Valore"], errors="coerce")
             records.append(sotto_df)
@@ -73,15 +73,21 @@ vista = st.sidebar.radio("Scegli una vista:", ["Spese dettagliate", "Riepilogo m
 if vista == "Spese dettagliate":
     st.title("📌 Spese 2025")
 
+    # Carica spese e riepilogo
     df_spese = carica_spese()
+    df_riepilogo = carica_riepilogo()
 
-    tag_options = [
-        "Stipendio", "Affitto", "Spesa", "Bollette", "Trasporti",
-        "Assicurazione", "Generiche"
-    ]
+    # Estrai i tag validi (escludendo intestazioni di macrocategorie)
+    macrocategorie = ["Entrate", "Uscite necessarie", "Uscite variabili"]
+    tag_options = [tag for tag in df_riepilogo.index.tolist() if tag not in macrocategorie]
+
+    # Pulisci i tag nel DataFrame per allinearli alle opzioni
+    df_spese["Tag"] = df_spese["Tag"].str.strip()
+    df_spese["Tag"] = df_spese["Tag"].apply(lambda x: x if x in tag_options else tag_options[0])
 
     st.subheader("📝 Modifica le spese")
 
+    # Tabella modificabile
     edited_df = st.data_editor(
         df_spese,
         column_config={
@@ -93,6 +99,7 @@ if vista == "Spese dettagliate":
         use_container_width=True
     )
 
+    # Salvataggio
     if st.button("💾 Salva le modifiche"):
         try:
             mesi = [

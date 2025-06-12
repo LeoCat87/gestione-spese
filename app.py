@@ -133,42 +133,70 @@ if vista == "Spese dettagliate":
                 st.error(f"Errore nella lettura del file Excel: {e}")
 
         elif file_caricato.type == "application/pdf":
-            try:
-                import PyPDF2
-                import re
-                from datetime import datetime
+    try:
+        import PyPDF2
+        import re
+        from datetime import datetime
 
-                reader = PyPDF2.PdfReader(file_caricato)
-                testo_completo = ""
-                for page in reader.pages:
-                    testo_completo += page.extract_text() + "\n"
+        reader = PyPDF2.PdfReader(file_caricato)
+        testo_completo = ""
+        for page in reader.pages:
+            testo_completo += page.extract_text() + "\n"
 
-                pattern_movimento = re.compile(
-                    r"(\d{1,2}\s+[a-zà]+\s+2025).*?\n(.*?)\n.*?([-−–]?\d{1,3}(?:[\.,]\d{2}))",
-                    re.IGNORECASE | re.DOTALL
-                )
-                movimenti = pattern_movimento.findall(testo_completo)
+        righe = testo_completo.splitlines()
 
-                nuovi_record = []
-                for data_str, descrizione, valore_str in movimenti:
-                    try:
-                        data = datetime.strptime(data_str.strip(), "%d %B %Y")
-                        mese = data.strftime("%B").capitalize()
-                        valore = float(valore_str.replace(",", ".").replace("−", "-").replace("–", "-").replace(" ", ""))
-                        testo = descrizione.replace("\n", " ").strip()
-                        nuovi_record.append({"Testo": testo, "Valore": valore, "Tag": "", "Mese": mese})
-                    except Exception:
-                        continue
+        movimenti = []
+        data_corrente = None
+        descrizione = ""
 
-                if nuovi_record:
-                    df_upload = pd.DataFrame(nuovi_record)
-                    df_spese = pd.concat([df_spese, df_upload], ignore_index=True)
-                    st.success(f"{len(nuovi_record)} spese importate dal PDF.")
-                else:
-                    st.warning("Nessuna spesa trovata nel PDF.")
+        pattern_data = re.compile(r"\d{1,2} [a-zà]+ 2025", re.IGNORECASE)
+        pattern_importo = re.compile(r"[-−–]?\d{1,3}(?:[\.,]\d{2})$")
 
-            except Exception as e:
-                st.error(f"Errore nella lettura del PDF: {e}")
+        for i, riga in enumerate(righe):
+            riga = riga.strip()
+
+            # Se troviamo una data, inizia un nuovo blocco
+            if pattern_data.match(riga.lower()):
+                data_corrente = riga.strip()
+                descrizione = ""
+                continue
+
+            # Se troviamo un importo e c'è una data in memoria
+            if pattern_importo.search(riga) and data_corrente:
+                try:
+                    valore_str = pattern_importo.search(riga).group()
+                    valore = float(valore_str.replace(",", ".").replace("−", "-").replace("–", "-"))
+
+                    data = datetime.strptime(data_corrente, "%d %B %Y")
+                    mese = data.strftime("%B").capitalize()
+
+                    testo_descrizione = descrizione.strip() or "Senza descrizione"
+                    movimenti.append({
+                        "Testo": testo_descrizione,
+                        "Valore": valore,
+                        "Tag": "",
+                        "Mese": mese
+                    })
+
+                    # reset per prossimo blocco
+                    data_corrente = None
+                    descrizione = ""
+
+                except Exception:
+                    continue
+            elif data_corrente:
+                # accumula righe di descrizione finché non arriva l'importo
+                descrizione += " " + riga
+
+        if movimenti:
+            df_upload = pd.DataFrame(movimenti)
+            df_spese = pd.concat([df_spese, df_upload], ignore_index=True)
+            st.success(f"{len(df_upload)} spese importate dal PDF.")
+        else:
+            st.warning("Nessuna spesa trovata nel PDF.")
+
+    except Exception as e:
+        st.error(f"Errore nella lettura del PDF: {e}")
 
     # Mostra e modifica solo le spese del mese selezionato
     df_filtrato = df_spese[df_spese["Mese"] == mese_selezionato][["Testo", "Valore", "Tag"]].reset_index(drop=True)

@@ -169,16 +169,15 @@ elif vista == "Riepilogo mensile":
     df_riep_dyn = df_riep_dyn[[m for m in mesi_ordinati if m in df_riep_dyn.columns]]
 
     df_base = df_orig.copy()
-    df_base = df_base.loc[:, ~df_base.columns.duplicated()]
+    df_base = df_base.loc[:, df_base.columns.str.lower().isin(mesi_ordinati)]  # ⬅️ Qui filtriamo solo i mesi minuscoli
 
     for mese in mesi_ordinati:
         if mese in df_riep_dyn.columns:
-            mese_nome = mese.capitalize()
-            df_base[mese_nome] = df_riep_dyn[mese].reindex(df_base.index).fillna(0)
+            df_base[mese] = df_riep_dyn[mese].reindex(df_base.index).fillna(0)
 
     righe_finali = []
     for categoria, tag_list in macrocategorie.items():
-        intestazione = pd.Series([None] * len(mesi_ordinati), index=[m.capitalize() for m in mesi_ordinati], name=categoria)
+        intestazione = pd.Series([None] * len(mesi_ordinati), index=mesi_ordinati, name=categoria)
         righe_finali.append(intestazione)
         for tag in tag_list:
             if tag in df_base.index:

@@ -81,7 +81,7 @@ if vista == "Spese dettagliate":
 
     df_spese["Tag"] = df_spese["Tag"].str.strip()
     df_spese["Mese"] = df_spese["Mese"].str.strip()
-    df_spese["Tag"] = df_spese["Tag"].apply(lambda x: x if x in tag_options else "")
+    df_spese["Tag"] = df_spese["Tag"].fillna("")
 
     mesi_disponibili = [
         "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",

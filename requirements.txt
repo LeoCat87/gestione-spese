@@ -8,5 +8,6 @@ matplotlib
 gdown
 PyPDF2
 easyocr
-pdf2image
 Pillow
+PyMuPDF
+numpy

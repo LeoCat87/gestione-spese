@@ -76,20 +76,20 @@ if vista == "Spese dettagliate":
     df_spese = carica_spese()
     df_riepilogo = carica_riepilogo()
 
-    # Estrai tag validi escludendo macrocategorie
+    # Estrai i tag validi (escludendo intestazioni di macrocategorie)
     macrocategorie = ["Entrate", "Uscite necessarie", "Uscite variabili"]
     tag_options = [tag for tag in df_riepilogo.index.tolist() if tag not in macrocategorie]
 
-    # Pulisci tag e mese
+    # Pulisci
     df_spese["Tag"] = df_spese["Tag"].str.strip()
-    df_spese["Tag"] = df_spese["Tag"].apply(lambda x: x if x in tag_options else tag_options[0])
     df_spese["Mese"] = df_spese["Mese"].str.strip()
+    df_spese["Tag"] = df_spese["Tag"].apply(lambda x: x if x in tag_options else "")
 
-    # Filtro per mese
+    # Mostra tutti i mesi
     mesi_disponibili = [
-    "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
-    "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
-]
+        "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+        "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
+    ]
     mese_selezionato = st.selectbox("📅 Seleziona mese", mesi_disponibili)
 
     st.subheader("➕ Aggiungi nuova spesa")
@@ -110,31 +110,86 @@ if vista == "Spese dettagliate":
             df_spese = pd.concat([df_spese, pd.DataFrame([nuova_riga])], ignore_index=True)
             st.success("Spesa aggiunta!")
 
-    # Filtra e mostra tabella modificabile (senza colonna Mese)
+    st.subheader("📎 Carica spese da file")
+
+    file_caricato = st.file_uploader("Carica un file Excel (.xlsx) o PDF", type=["xlsx", "pdf"])
+
+    if file_caricato is not None:
+        import io
+        import pandas as pd
+
+        if file_caricato.type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+            try:
+                df_upload = pd.read_excel(file_caricato)
+                colonne_attese = ["Testo", "Valore", "Tag"]
+                if all(col in df_upload.columns for col in colonne_attese):
+                    df_upload = df_upload[colonne_attese]
+                    df_upload["Mese"] = mese_selezionato
+                    df_spese = pd.concat([df_spese, df_upload], ignore_index=True)
+                    st.success(f"{len(df_upload)} spese caricate dal file Excel.")
+                else:
+                    st.error("Il file Excel deve contenere le colonne: Testo, Valore, Tag")
+            except Exception as e:
+                st.error(f"Errore nella lettura del file Excel: {e}")
+
+        elif file_caricato.type == "application/pdf":
+            try:
+                import PyPDF2
+                import re
+                from datetime import datetime
+
+                reader = PyPDF2.PdfReader(file_caricato)
+                testo_completo = ""
+                for page in reader.pages:
+                    testo_completo += page.extract_text() + "\n"
+
+                pattern_movimento = re.compile(
+                    r"(\d{1,2}\s+[a-zà]+\s+2025).*?\n(.*?)\n.*?([-−–]?\d{1,3}(?:[\.,]\d{2}))",
+                    re.IGNORECASE | re.DOTALL
+                )
+                movimenti = pattern_movimento.findall(testo_completo)
+
+                nuovi_record = []
+                for data_str, descrizione, valore_str in movimenti:
+                    try:
+                        data = datetime.strptime(data_str.strip(), "%d %B %Y")
+                        mese = data.strftime("%B").capitalize()
+                        valore = float(valore_str.replace(",", ".").replace("−", "-").replace("–", "-").replace(" ", ""))
+                        testo = descrizione.replace("\n", " ").strip()
+                        nuovi_record.append({"Testo": testo, "Valore": valore, "Tag": "", "Mese": mese})
+                    except Exception:
+                        continue
+
+                if nuovi_record:
+                    df_upload = pd.DataFrame(nuovi_record)
+                    df_spese = pd.concat([df_spese, df_upload], ignore_index=True)
+                    st.success(f"{len(nuovi_record)} spese importate dal PDF.")
+                else:
+                    st.warning("Nessuna spesa trovata nel PDF.")
+
+            except Exception as e:
+                st.error(f"Errore nella lettura del PDF: {e}")
+
+    # Mostra e modifica solo le spese del mese selezionato
     df_filtrato = df_spese[df_spese["Mese"] == mese_selezionato][["Testo", "Valore", "Tag"]].reset_index(drop=True)
 
-    st.subheader("📝 Modifica spese del mese")
+    st.subheader(f"📝 Modifica spese di {mese_selezionato}")
     edited_df = st.data_editor(
         df_filtrato,
         column_config={
             "Testo": st.column_config.TextColumn("Descrizione"),
             "Valore": st.column_config.NumberColumn("Importo (€)"),
-            "Tag": st.column_config.SelectboxColumn("Categoria", options=tag_options)
+            "Tag": st.column_config.SelectboxColumn("Categoria", options=tag_options + [""])
         },
         use_container_width=True
     )
 
-    # Sostituisci i dati del mese con quelli modificati
+    # Aggiorna il DataFrame completo con le modifiche
     df_spese.loc[df_spese["Mese"] == mese_selezionato, ["Testo", "Valore", "Tag"]] = edited_df
 
-    # Salva su Excel
     if st.button("💾 Salva tutte le modifiche"):
         try:
-            mesi = [
-                "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
-                "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
-            ]
-
+            mesi = mesi_disponibili
             blocchi = []
             max_righe = 0
 
@@ -156,7 +211,7 @@ if vista == "Spese dettagliate":
             with pd.ExcelWriter(EXCEL_PATH, engine="openpyxl", mode="w") as writer:
                 df_ricostruito.to_excel(writer, sheet_name="Spese 2025", index=False)
 
-            st.success("Modifiche salvate con successo!")
+            st.success("Tutte le modifiche sono state salvate!")
         except Exception as e:
             st.error(f"Errore nel salvataggio: {e}")
 

@@ -5,6 +5,7 @@ import openpyxl
 import matplotlib.pyplot as plt
 import os
 import io
+from datetime import datetime
 
 st.set_page_config(page_title="Gestione Spese", layout="wide")
 
@@ -48,20 +49,6 @@ def carica_spese():
     df_finale = pd.concat(records, ignore_index=True)
     return df_finale
 
-@st.cache_data
-def carica_riepilogo_originale():
-    try:
-        df = pd.read_excel(EXCEL_FILE, sheet_name="Riepilogo Leo", index_col=0)
-        df = df.loc[:, ~df.columns.str.contains("^Unnamed")]
-        return df
-    except Exception as e:
-        st.error(f"Errore durante il caricamento del riepilogo: {e}")
-        st.stop()
-
-def formatta_euro(val):
-    return f"€ {val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-
-# === FUNZIONE DI SALVATAGGIO ===
 def salva_spese_formattato(df_spese):
     mesi = [
         "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
@@ -97,11 +84,12 @@ def salva_spese_formattato(df_spese):
                 else:
                     row.extend(["", "", ""])
             ws.append(row)
-
         writer.save()
 
-# === INTERFACCIA ===
+def formatta_euro(val):
+    return f"€ {val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
+# === INTERFACCIA ===
 st.sidebar.title("📁 Navigazione")
 vista = st.sidebar.radio("Scegli una vista:", ["Spese dettagliate", "Riepilogo mensile", "Dashboard"])
 
@@ -120,17 +108,7 @@ if vista == "Spese dettagliate":
     df_filtrato = df_spese[df_spese["Mese"] == mese_selezionato][["Testo", "Valore", "Tag"]].reset_index(drop=True)
     st.subheader(f"📝 Modifica spese di {mese_selezionato.capitalize()}")
 
-    edited_df = st.data_editor(
-        df_filtrato,
-        column_config={
-            "Testo": st.column_config.TextColumn("Descrizione"),
-            "Valore": st.column_config.NumberColumn("Importo (€)"),
-            "Tag": st.column_config.TextColumn("Categoria")
-        },
-        use_container_width=True,
-        hide_index=True
-    )
-
+    edited_df = st.data_editor(df_filtrato, use_container_width=True, hide_index=True)
     df_spese.loc[df_spese["Mese"] == mese_selezionato, ["Testo", "Valore", "Tag"]] = edited_df
 
     st.subheader("➕ Aggiungi nuova spesa")
@@ -154,19 +132,9 @@ if vista == "Spese dettagliate":
         try:
             salva_spese_formattato(df_spese)
             st.cache_data.clear()
-            st.success(f"File aggiornato correttamente!")
+            st.success("File aggiornato correttamente!")
         except Exception as e:
             st.error(f"Errore nel salvataggio: {e}")
-
-    buffer = io.BytesIO()
-    df_spese.to_excel(buffer, index=False, engine="openpyxl")
-    buffer.seek(0)
-    st.download_button(
-        label="⬇️ Scarica spese aggiornate",
-        data=buffer,
-        file_name="Spese_App_modificato.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
 
 # === VISTA 2: RIEPILOGO MENSILE ===
 elif vista == "Riepilogo mensile":
@@ -245,7 +213,12 @@ elif vista == "Dashboard":
         df_grouped = df_categoria.groupby("Mese")["Valore"].sum()
         df_macrocategorie.loc[categoria] = df_grouped
 
-    df_macrocategorie = df_macrocategorie.fillna(0)
+    mesi_ordinati = [
+        "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
+        "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"
+    ]
+    df_macrocategorie = df_macrocategorie.reindex(columns=mesi_ordinati, fill_value=0)
+
     df_macrocategorie.loc["Risparmio mese"] = (
         df_macrocategorie.loc["Entrate"]
         - df_macrocategorie.loc["Uscite necessarie"]
@@ -253,9 +226,8 @@ elif vista == "Dashboard":
     )
     df_macrocategorie.loc["Risparmio cumulato"] = df_macrocategorie.loc["Risparmio mese"].cumsum()
 
-    from datetime import datetime
     mese_attuale = datetime.today().month
-    mesi_ytd = df_macrocategorie.columns[:mese_attuale]
+    mesi_ytd = mesi_ordinati[:mese_attuale]
     df_macrocategorie["Media YTD"] = df_macrocategorie[mesi_ytd].mean(axis=1)
 
     df_tabella = df_macrocategorie.reset_index().rename(columns={"index": "Voce"})

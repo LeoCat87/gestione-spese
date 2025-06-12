@@ -87,7 +87,7 @@ if vista == "Spese dettagliate":
         "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
         "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
     ]
-    mese_selezionato = st.selectbox("🗓️ Seleziona mese", mesi_disponibili)
+    mese_selezionato = st.selectbox("📅 Seleziona mese", mesi_disponibili)
 
     st.subheader("➕ Aggiungi nuova spesa")
 
@@ -107,7 +107,7 @@ if vista == "Spese dettagliate":
             df_spese = pd.concat([df_spese, pd.DataFrame([nuova_riga])], ignore_index=True)
             st.success("Spesa aggiunta!")
 
-    st.subheader("📌 Carica spese da file")
+    st.subheader("📎 Carica spese da file")
 
     file_caricato = st.file_uploader("Carica un file Excel (.xlsx) o PDF", type=["xlsx", "pdf"])
 
@@ -130,16 +130,22 @@ if vista == "Spese dettagliate":
 
         elif file_caricato.type == "application/pdf":
             try:
-                import easyocr
-                from pdf2image import convert_from_bytes
+                import fitz  # PyMuPDF
                 from PIL import Image
                 import numpy as np
+                import easyocr
                 import re
                 from datetime import datetime
 
                 st.info("Eseguo OCR sul documento PDF, attendere...")
 
-                immagini = convert_from_bytes(file_caricato.read())
+                doc = fitz.open(stream=file_caricato.read(), filetype="pdf")
+                immagini = []
+                for pagina in doc:
+                    pix = pagina.get_pixmap(dpi=200)
+                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                    immagini.append(img)
+
                 reader = easyocr.Reader(['it'], gpu=False)
 
                 testo_completo = ""
@@ -147,7 +153,7 @@ if vista == "Spese dettagliate":
                     risultato = reader.readtext(np.array(img), detail=0, paragraph=True)
                     testo_completo += "\n".join(risultato) + "\n"
 
-                st.subheader("📜 Testo OCR estratto dal PDF:")
+                st.subheader("🧾 Testo OCR estratto dal PDF:")
                 st.text(testo_completo[:3000])
 
                 righe = testo_completo.splitlines()
@@ -213,7 +219,7 @@ if vista == "Spese dettagliate":
 
     df_spese.loc[df_spese["Mese"] == mese_selezionato, ["Testo", "Valore", "Tag"]] = edited_df
 
-    if st.button("📅 Salva tutte le modifiche"):
+    if st.button("💾 Salva tutte le modifiche"):
         try:
             blocchi = []
             max_righe = 0

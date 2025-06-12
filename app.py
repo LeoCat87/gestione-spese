@@ -244,11 +244,11 @@ if vista == "Spese dettagliate":
 
 # === VISTA 2: RIEPILOGO MENSILE ===
 elif vista == "Riepilogo mensile":
-    st.title("📊 Riepilogo Mensile per Tag")
+    st.title("📊 Riepilogo Mensile (dinamico)")
 
-    df_riepilogo = carica_riepilogo()
+    df_spese = carica_spese()
 
-    mappa_macrocategorie = {
+    macrocategorie = {
         "Entrate": ["Stipendio", "Affitto Savoldo 4 + generico"],
         "Uscite necessarie": [
             "PAC Investimenti", "Donazioni (StC, Unicef, Greenpeace)", "Mutuo", "Luce&Gas",
@@ -262,22 +262,35 @@ elif vista == "Riepilogo mensile":
         ]
     }
 
-    righe_finali = []
+    mesi_ordinati = [
+        "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+        "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
+    ]
 
-    for categoria, tag_list in mappa_macrocategorie.items():
-        intestazione = pd.Series([None] * len(df_riepilogo.columns), index=df_riepilogo.columns, name=categoria)
+    # Pulizia
+    df_spese["Mese"] = df_spese["Mese"].str.strip()
+    df_spese["Tag"] = df_spese["Tag"].str.strip()
+    df_spese = df_spese[df_spese["Mese"].isin(mesi_ordinati)]
+
+    # Pivot per sommare per tag e mese
+    df_riep = df_spese.groupby(["Tag", "Mese"])["Valore"].sum().unstack(fill_value=0)
+    df_riep = df_riep[mesi_ordinati]
+
+    righe_finali = []
+    for categoria, tag_list in macrocategorie.items():
+        intestazione = pd.Series([None] * len(df_riep.columns), index=df_riep.columns, name=categoria)
         righe_finali.append(intestazione)
 
         for tag in tag_list:
-            if tag in df_riepilogo.index:
-                riga = df_riepilogo.loc[tag]
-                riga.name = tag
-                righe_finali.append(riga)
+            if tag in df_riep.index:
+                righe_finali.append(df_riep.loc[tag])
 
-    df_riepilogo_cat = pd.DataFrame(righe_finali)
+    df_riep_cat = pd.DataFrame(righe_finali)
 
-    # Formatta i valori in euro, lascia vuoto le righe intestazione
-    df_formattato = df_riepilogo_cat.copy()
+    def formatta_euro(val):
+        return f"€ {val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+    df_formattato = df_riep_cat.copy()
     for col in df_formattato.columns:
         df_formattato[col] = df_formattato[col].apply(
             lambda x: formatta_euro(x) if pd.notnull(x) and isinstance(x, (int, float)) else ""

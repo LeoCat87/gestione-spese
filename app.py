@@ -89,8 +89,23 @@ if vista == "Spese dettagliate":
     ]
     mese_selezionato = st.selectbox("📅 Seleziona mese", mesi_disponibili)
 
-    st.subheader("➕ Aggiungi nuova spesa")
+    # === Mostra tabella filtrata ===
+    df_filtrato = df_spese[df_spese["Mese"] == mese_selezionato][["Testo", "Valore", "Tag"]].reset_index(drop=True)
+    st.subheader(f"📝 Modifica spese di {mese_selezionato}")
+    edited_df = st.data_editor(
+        df_filtrato,
+        column_config={
+            "Testo": st.column_config.TextColumn("Descrizione"),
+            "Valore": st.column_config.NumberColumn("Importo (€)"),
+            "Tag": st.column_config.SelectboxColumn("Categoria", options=tag_options + [""])
+        },
+        use_container_width=True,
+        hide_index=True
+    )
 
+    df_spese.loc[df_spese["Mese"] == mese_selezionato, ["Testo", "Valore", "Tag"]] = edited_df
+
+    st.subheader("➕ Aggiungi nuova spesa")
     with st.form(key="aggiungi_spesa"):
         nuovo_testo = st.text_input("Descrizione")
         nuovo_valore = st.number_input("Importo (€)", step=0.01)
@@ -108,7 +123,6 @@ if vista == "Spese dettagliate":
             st.success("Spesa aggiunta!")
 
     st.subheader("📎 Carica spese da file")
-
     file_caricato = st.file_uploader("Carica un file Excel (.xlsx) o PDF", type=["xlsx", "pdf"])
 
     def estrai_testo_ocr_space(file_pdf, api_key="K84283602188957"):
@@ -208,21 +222,6 @@ if vista == "Spese dettagliate":
 
             except Exception as e:
                 st.error(f"Errore durante l'OCR del PDF: {e}")
-
-    df_filtrato = df_spese[df_spese["Mese"] == mese_selezionato][["Testo", "Valore", "Tag"]].reset_index(drop=True)
-
-    st.subheader(f"📝 Modifica spese di {mese_selezionato}")
-    edited_df = st.data_editor(
-        df_filtrato,
-        column_config={
-            "Testo": st.column_config.TextColumn("Descrizione"),
-            "Valore": st.column_config.NumberColumn("Importo (€)"),
-            "Tag": st.column_config.SelectboxColumn("Categoria", options=tag_options + [""])
-        },
-        use_container_width=True
-    )
-
-    df_spese.loc[df_spese["Mese"] == mese_selezionato, ["Testo", "Valore", "Tag"]] = edited_df
 
     if st.button("💾 Salva tutte le modifiche"):
         try:

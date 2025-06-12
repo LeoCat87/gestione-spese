@@ -87,7 +87,7 @@ if vista == "Spese dettagliate":
         "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
         "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
     ]
-    mese_selezionato = st.selectbox("📅 Seleziona mese", mesi_disponibili)
+    mese_selezionato = st.selectbox("🗓️ Seleziona mese", mesi_disponibili)
 
     st.subheader("➕ Aggiungi nuova spesa")
 
@@ -107,12 +107,11 @@ if vista == "Spese dettagliate":
             df_spese = pd.concat([df_spese, pd.DataFrame([nuova_riga])], ignore_index=True)
             st.success("Spesa aggiunta!")
 
-    st.subheader("📎 Carica spese da file")
+    st.subheader("📌 Carica spese da file")
 
     file_caricato = st.file_uploader("Carica un file Excel (.xlsx) o PDF", type=["xlsx", "pdf"])
 
     if file_caricato is not None:
-        import io
         import pandas as pd
 
         if file_caricato.type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
@@ -131,17 +130,27 @@ if vista == "Spese dettagliate":
 
         elif file_caricato.type == "application/pdf":
             try:
-                import PyPDF2
+                import easyocr
+                from pdf2image import convert_from_bytes
+                from PIL import Image
+                import numpy as np
                 import re
                 from datetime import datetime
 
-                reader = PyPDF2.PdfReader(file_caricato)
+                st.info("Eseguo OCR sul documento PDF, attendere...")
+
+                immagini = convert_from_bytes(file_caricato.read())
+                reader = easyocr.Reader(['it'], gpu=False)
+
                 testo_completo = ""
-                for page in reader.pages:
-                    testo_completo += page.extract_text() + "\n"
+                for img in immagini:
+                    risultato = reader.readtext(np.array(img), detail=0, paragraph=True)
+                    testo_completo += "\n".join(risultato) + "\n"
+
+                st.subheader("📜 Testo OCR estratto dal PDF:")
+                st.text(testo_completo[:3000])
 
                 righe = testo_completo.splitlines()
-
                 movimenti = []
                 data_corrente = None
                 descrizione = ""
@@ -149,9 +158,8 @@ if vista == "Spese dettagliate":
                 pattern_data = re.compile(r"\d{1,2} [a-zà]+ 2025", re.IGNORECASE)
                 pattern_importo = re.compile(r"[-−–]?\d{1,3}(?:[\.,]\d{2})$")
 
-                for i, riga in enumerate(righe):
+                for riga in righe:
                     riga = riga.strip()
-
                     if pattern_data.match(riga.lower()):
                         data_corrente = riga.strip()
                         descrizione = ""
@@ -175,7 +183,6 @@ if vista == "Spese dettagliate":
 
                             data_corrente = None
                             descrizione = ""
-
                         except Exception:
                             continue
                     elif data_corrente:
@@ -184,12 +191,12 @@ if vista == "Spese dettagliate":
                 if movimenti:
                     df_upload = pd.DataFrame(movimenti)
                     df_spese = pd.concat([df_spese, df_upload], ignore_index=True)
-                    st.success(f"{len(df_upload)} spese importate dal PDF.")
+                    st.success(f"{len(df_upload)} spese importate dal PDF tramite OCR.")
                 else:
-                    st.warning("Nessuna spesa trovata nel PDF.")
+                    st.warning("Nessuna spesa trovata tramite OCR.")
 
             except Exception as e:
-                st.error(f"Errore nella lettura del PDF: {e}")
+                st.error(f"Errore durante l'OCR del PDF: {e}")
 
     df_filtrato = df_spese[df_spese["Mese"] == mese_selezionato][["Testo", "Valore", "Tag"]].reset_index(drop=True)
 
@@ -206,7 +213,7 @@ if vista == "Spese dettagliate":
 
     df_spese.loc[df_spese["Mese"] == mese_selezionato, ["Testo", "Valore", "Tag"]] = edited_df
 
-    if st.button("💾 Salva tutte le modifiche"):
+    if st.button("📅 Salva tutte le modifiche"):
         try:
             blocchi = []
             max_righe = 0

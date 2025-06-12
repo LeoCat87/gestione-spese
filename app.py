@@ -132,6 +132,8 @@ elif vista == "Riepilogo mensile":
     st.title("📊 Riepilogo Mensile (dinamico)")
 
     df_spese = carica_spese()
+    df_orig = pd.read_excel(EXCEL_FILE, sheet_name="Riepilogo Leo", index_col=0)
+    df_orig = df_orig.loc[:, ~df_orig.columns.str.contains("^Unnamed")]
 
     macrocategorie = {
         "Entrate": ["Stipendio", "Affitto Savoldo 4 + generico"],
@@ -152,28 +154,35 @@ elif vista == "Riepilogo mensile":
         "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"
     ]
 
-    # Pulizia
+    # Pulizia spese
     df_spese["Mese"] = df_spese["Mese"].str.lower().str.strip()
     df_spese["Tag"] = df_spese["Tag"].str.strip()
     df_spese = df_spese[df_spese["Mese"].isin(mesi_ordinati)]
 
-    # Pivot per sommare per tag e mese
-    df_riep = df_spese.groupby(["Tag", "Mese"])["Valore"].sum().unstack(fill_value=0)
+    # Riepilogo dinamico
+    df_riep_dyn = df_spese.groupby(["Tag", "Mese"])["Valore"].sum().unstack(fill_value=0)
+    df_riep_dyn = df_riep_dyn[[m for m in mesi_ordinati if m in df_riep_dyn.columns]]
 
-    # Prendi solo i mesi effettivamente presenti
-    mesi_presenti = [m for m in mesi_ordinati if m in df_riep.columns]
-    df_riep = df_riep[mesi_presenti]
+    # Prendi struttura originale e aggiorna con dati dinamici
+    df_base = df_orig.copy()
+    for mese in mesi_ordinati:
+        if mese in df_riep_dyn.columns:
+            df_base[mese.capitalize()] = df_riep_dyn[mese] \
+                .reindex(df_base.index) \
+                .fillna(0)
 
+    # Costruisci tabella con macrocategorie
     righe_finali = []
     for categoria, tag_list in macrocategorie.items():
-        intestazione = pd.Series([None] * len(df_riep.columns), index=df_riep.columns, name=categoria)
+        intestazione = pd.Series([None] * len(mesi_ordinati), index=[m.capitalize() for m in mesi_ordinati], name=categoria)
         righe_finali.append(intestazione)
         for tag in tag_list:
-            if tag in df_riep.index:
-                righe_finali.append(df_riep.loc[tag])
+            if tag in df_base.index:
+                righe_finali.append(df_base.loc[tag])
 
     df_riep_cat = pd.DataFrame(righe_finali)
 
+    # Formattazione euro
     df_formattato = df_riep_cat.copy()
     for col in df_formattato.columns:
         df_formattato[col] = df_formattato[col].apply(
@@ -181,6 +190,7 @@ elif vista == "Riepilogo mensile":
         )
 
     st.dataframe(df_formattato, use_container_width=True, hide_index=False)
+
 
 # === VISTA 3: DASHBOARD ===
 elif vista == "Dashboard":

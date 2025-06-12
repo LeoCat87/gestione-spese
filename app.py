@@ -22,15 +22,31 @@ scarica_excel_da_drive()
 
 @st.cache_data
 def carica_spese():
-    # Carica il foglio 'Spese 2025' dal file Excel
-    df = pd.read_excel(EXCEL_PATH, sheet_name="Spese 2025", header=1)
-    df = df.loc[:, ~df.columns.str.contains('^Unnamed')]  # Rimuove le colonne non nominate
-    df = df.reset_index(drop=True)
-    # Assicuriamoci che 'Valore' sia numerico e 'Tag' sia stringa
-    df["Valore"] = pd.to_numeric(df["Valore"], errors="coerce")
-    df["Tag"] = df["Tag"].astype(str)
-    df["Testo"] = df["Testo"].astype(str)  # Assicuriamoci che 'Testo' sia stringa
-    return df
+    df_raw = pd.read_excel(EXCEL_PATH, sheet_name="Spese 2025", header=1)
+    df_raw = df_raw.loc[:, ~df_raw.columns.str.contains("^Unnamed")]
+    
+    mesi = [
+        "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+        "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
+    ]
+
+    records = []
+
+    for i, mese in enumerate(mesi):
+        col_base = i * 3
+        if col_base + 2 < len(df_raw.columns):
+            sotto_df = df_raw.iloc[:, col_base:col_base+3].copy()
+            sotto_df.columns = ["Testo", "Valore", "Tag"]
+            sotto_df = sotto_df.dropna(how="all", subset=["Valore", "Testo", "Tag"])
+            sotto_df["Mese"] = mese
+            records.append(sotto_df)
+
+    df_finale = pd.concat(records, ignore_index=True)
+    df_finale["Valore"] = pd.to_numeric(df_finale["Valore"], errors="coerce")
+    df_finale["Tag"] = df_finale["Tag"].astype(str)
+    df_finale["Testo"] = df_finale["Testo"].astype(str)
+    
+    return df_finale
 
 @st.cache_data
 def carica_riepilogo():
@@ -57,52 +73,60 @@ vista = st.sidebar.radio("Scegli una vista:", ["Spese dettagliate", "Riepilogo m
 if vista == "Spese dettagliate":
     st.title("📌 Spese 2025")
 
-    # Carica i dati delle spese
     df_spese = carica_spese()
-    st.write("📋 Tag trovati nel file Excel:")
-    st.write(df_spese["Tag"].unique())
-    st.write("🔎 Colonne lette dal foglio 'Spese 2025':")
-    st.write(df_spese.columns.tolist())
 
-
-
-    # Forza la colonna 'Tag' a stringa (obbligatorio per funzionare con SelectboxColumn)
-    df_spese["Tag"] = df_spese["Tag"].astype(str)
-
-    # Definisci i tag disponibili (sempre uguali)
     tag_options = [
         "Stipendio", "Affitto", "Spesa", "Bollette", "Trasporti",
         "Assicurazione", "Generiche"
     ]
 
-    # Verifica che tutti i valori in df_spese["Tag"] siano contenuti tra le opzioni
-    valori_non_val = [val for val in df_spese["Tag"].unique() if val not in tag_options]
-    if valori_non_val:
-        st.warning(f"I seguenti tag non sono validi e saranno sostituiti: {valori_non_val}")
-        df_spese["Tag"] = df_spese["Tag"].apply(lambda x: x if x in tag_options else tag_options[0])
-
     st.subheader("📝 Modifica le spese")
 
-    # Tabella modificabile con menu a tendina per la colonna Tag
     edited_df = st.data_editor(
         df_spese,
         column_config={
             "Testo": st.column_config.TextColumn("Descrizione"),
             "Valore": st.column_config.NumberColumn("Importo (€)", format="€ {value:,.2f}"),
-            "Tag": st.column_config.SelectboxColumn("Categoria", options=tag_options)
+            "Tag": st.column_config.SelectboxColumn("Categoria", options=tag_options),
+            "Mese": st.column_config.TextColumn("Mese")
         },
         use_container_width=True
     )
 
-    # Bottone per salvare
     if st.button("💾 Salva le modifiche"):
         try:
-            with pd.ExcelWriter(EXCEL_PATH, engine="openpyxl", mode="w") as writer:
-                edited_df.to_excel(writer, sheet_name="Spese 2025", index=False)
-            st.success("Modifiche salvate con successo!")
-        except Exception as e:
-            st.error(f"Errore nel salvataggio: {e}")
+            # Ricostruisci il formato originale a blocchi mensili
+            mesi = [
+                "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+                "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
+            ]
 
+            # Crea un nuovo DataFrame vuoto
+            blocchi = []
+
+            max_righe = 0
+            for mese in mesi:
+                mese_df = edited_df[edited_df["Mese"] == mese][["Testo", "Valore", "Tag"]].reset_index(drop=True)
+                max_righe = max(max_righe, len(mese_df))
+                blocchi.append(mese_df)
+
+            # Normalizza tutti i blocchi alla stessa lunghezza
+            for i in range(len(blocchi)):
+                righe_mancanti = max_righe - len(blocchi[i])
+                if righe_mancanti > 0:
+                    blocchi[i] = pd.concat([blocchi[i], pd.DataFrame([["", "", ""]] * righe_mancanti, columns=["Testo", "Valore", "Tag"])])
+
+            # Concatenazione orizzontale
+            df_ricostruito = pd.concat(blocchi, axis=1)
+
+            # Salva su Excel
+            with pd.ExcelWriter(EXCEL_PATH, engine="openpyxl", mode="w") as writer:
+                df_ricostruito.to_excel(writer, sheet_name="Spese 2025", index=False)
+
+            st.success("Modifiche salvate con successo!")
+
+        except Exception as e:
+            st.error(f"Errore nel salvataggio del file Excel: {str(e)}")
 
 # === VISTA 2: RIEPILOGO MENSILE ===
 elif vista == "Riepilogo mensile":

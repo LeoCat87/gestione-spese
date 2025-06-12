@@ -111,6 +111,30 @@ if vista == "Spese dettagliate":
 
     file_caricato = st.file_uploader("Carica un file Excel (.xlsx) o PDF", type=["xlsx", "pdf"])
 
+    def estrai_testo_ocr_space(file_pdf, api_key="K84283602188957"):
+        import requests
+        st.info("📤 Invio del PDF al servizio OCR.Space...")
+        files = {
+            'file': (file_pdf.name, file_pdf, 'application/pdf')
+        }
+        data = {
+            'apikey': api_key,
+            'language': 'ita',
+            'isOverlayRequired': False
+        }
+        response = requests.post('https://api.ocr.space/parse/image',
+                                 files=files,
+                                 data=data)
+        result = response.json()
+
+        if result.get("IsErroredOnProcessing"):
+            raise ValueError("Errore OCR: " + result.get("ErrorMessage", ["Unknown"])[0])
+
+        testo = ""
+        for parsed in result["ParsedResults"]:
+            testo += parsed["ParsedText"] + "\n"
+        return testo
+
     if file_caricato is not None:
         import pandas as pd
 
@@ -130,29 +154,10 @@ if vista == "Spese dettagliate":
 
         elif file_caricato.type == "application/pdf":
             try:
-                import fitz  # PyMuPDF
-                from PIL import Image
-                import numpy as np
-                import easyocr
                 import re
                 from datetime import datetime
 
-                st.info("Eseguo OCR sul documento PDF, attendere...")
-
-                doc = fitz.open(stream=file_caricato.read(), filetype="pdf")
-                immagini = []
-                for pagina in doc:
-                    pix = pagina.get_pixmap(dpi=200)
-                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-                    immagini.append(img)
-
-                reader = easyocr.Reader(['it'], gpu=False)
-
-                testo_completo = ""
-                for img in immagini:
-                    risultato = reader.readtext(np.array(img), detail=0, paragraph=True)
-                    testo_completo += "\n".join(risultato) + "\n"
-
+                testo_completo = estrai_testo_ocr_space(file_caricato)
                 st.subheader("🧾 Testo OCR estratto dal PDF:")
                 st.text(testo_completo[:3000])
 

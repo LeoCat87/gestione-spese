@@ -72,40 +72,33 @@ if vista == "Spese dettagliate":
 
     df_spese = carica_spese()
 
-    macrocategorie = ["Entrate", "Uscite necessarie", "Uscite variabili"]
-    tag_options = df_spese["Tag"].unique().tolist()
-    tag_options = [t for t in tag_options if t not in macrocategorie]
-
-    df_spese["Tag"] = df_spese["Tag"].str.strip()
-    df_spese["Mese"] = df_spese["Mese"].str.strip()
-    df_spese["Tag"] = df_spese["Tag"].fillna("")
-
     mesi_disponibili = [
-        "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
-        "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
+        "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
+        "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"
     ]
     mese_selezionato = st.selectbox("📅 Seleziona mese", mesi_disponibili)
 
-    df_filtrato = df_spese[df_spese["Mese"] == mese_selezionato.lower()][["Testo", "Valore", "Tag"]].reset_index(drop=True)
-    st.subheader(f"📝 Modifica spese di {mese_selezionato}")
+    df_filtrato = df_spese[df_spese["Mese"] == mese_selezionato][["Testo", "Valore", "Tag"]].reset_index(drop=True)
+    st.subheader(f"📝 Modifica spese di {mese_selezionato.capitalize()}")
+
     edited_df = st.data_editor(
         df_filtrato,
         column_config={
             "Testo": st.column_config.TextColumn("Descrizione"),
             "Valore": st.column_config.NumberColumn("Importo (€)"),
-            "Tag": st.column_config.SelectboxColumn("Categoria", options=tag_options + [""])
+            "Tag": st.column_config.TextColumn("Categoria")
         },
         use_container_width=True,
         hide_index=True
     )
 
-    df_spese.loc[df_spese["Mese"] == mese_selezionato.lower(), ["Testo", "Valore", "Tag"]] = edited_df
+    df_spese.loc[df_spese["Mese"] == mese_selezionato, ["Testo", "Valore", "Tag"]] = edited_df
 
     st.subheader("➕ Aggiungi nuova spesa")
     with st.form(key="aggiungi_spesa"):
         nuovo_testo = st.text_input("Descrizione")
         nuovo_valore = st.number_input("Importo (€)", step=0.01)
-        nuovo_tag = st.selectbox("Categoria", options=tag_options)
+        nuovo_tag = st.text_input("Categoria")
         submitted = st.form_submit_button("Aggiungi")
 
         if submitted and nuovo_testo and nuovo_valore != 0:
@@ -113,7 +106,7 @@ if vista == "Spese dettagliate":
                 "Testo": nuovo_testo,
                 "Valore": nuovo_valore,
                 "Tag": nuovo_tag,
-                "Mese": mese_selezionato.lower()
+                "Mese": mese_selezionato
             }
             df_spese = pd.concat([df_spese, pd.DataFrame([nuova_riga])], ignore_index=True)
             st.success("Spesa aggiunta!")
@@ -121,6 +114,7 @@ if vista == "Spese dettagliate":
     if st.button("💾 Salva tutte le modifiche"):
         try:
             df_spese.to_excel(EXCEL_FILE, index=False)
+            st.cache_data.clear()
             st.success(f"File salvato come {EXCEL_FILE}!")
         except Exception as e:
             st.error(f"Errore nel salvataggio: {e}")
@@ -169,7 +163,7 @@ elif vista == "Riepilogo mensile":
     df_riep_dyn = df_riep_dyn[[m for m in mesi_ordinati if m in df_riep_dyn.columns]]
 
     df_base = df_orig.copy()
-    df_base = df_base.loc[:, df_base.columns.str.lower().isin(mesi_ordinati)]  # ⬅️ Qui filtriamo solo i mesi minuscoli
+    df_base = df_base.loc[:, df_base.columns.str.lower().isin(mesi_ordinati)]
 
     for mese in mesi_ordinati:
         if mese in df_riep_dyn.columns:
@@ -197,14 +191,14 @@ elif vista == "Riepilogo mensile":
 elif vista == "Dashboard":
     st.title("📈 Dashboard")
 
-    df_orig = carica_riepilogo_originale()
+    df_riepilogo = carica_riepilogo_originale()
 
     mesi = [
-        "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
-        "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
+        "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
+        "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"
     ]
 
-    macrocategorie = {
+    mappa_macrocategorie = {
         "Entrate": ["Stipendio", "Affitto Savoldo 4 + generico"],
         "Uscite necessarie": [
             "PAC Investimenti", "Donazioni (StC, Unicef, Greenpeace)", "Mutuo", "Luce&Gas",
@@ -218,12 +212,16 @@ elif vista == "Dashboard":
         ]
     }
 
-    df_base = df_orig.copy()
+    df_riepilogo = df_riepilogo.loc[:, df_riepilogo.columns.str.lower().isin(mesi)]
 
-    df_macrocategorie = pd.DataFrame(index=[], columns=mesi)
-    for categoria, tag_list in macrocategorie.items():
-        tags_presenti = [t for t in tag_list if t in df_base.index]
-        df_macrocategorie.loc[categoria] = df_base.loc[tags_presenti][mesi].sum()
+    df_macrocategorie = pd.DataFrame(columns=mesi)
+    for macro, sottotag in mappa_macrocategorie.items():
+        tag_presenti = [t for t in sottotag if t in df_riepilogo.index]
+        if tag_presenti:
+            somma = df_riepilogo.loc[tag_presenti].sum()
+            df_macrocategorie.loc[macro] = somma
+        else:
+            df_macrocategorie.loc[macro] = [0] * len(mesi)
 
     df_macrocategorie.loc["Risparmio mese"] = (
         df_macrocategorie.loc["Entrate"]
@@ -234,8 +232,10 @@ elif vista == "Dashboard":
 
     from datetime import datetime
     mese_attuale = datetime.today().month
-    mesi_ytd = mesi[:mese_attuale]
-    df_macrocategorie["Media YTD"] = df_macrocategorie[mesi_ytd].mean(axis=1)
+    mesi_ytd = mesi[:mese_attuale - 1]
+
+    medie_ytd = df_macrocategorie[mesi_ytd].mean(axis=1)
+    df_macrocategorie["Media YTD"] = medie_ytd
 
     df_tabella = df_macrocategorie.reset_index().rename(columns={"index": "Voce"})
     for col in df_tabella.columns[1:]:

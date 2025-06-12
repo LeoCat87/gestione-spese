@@ -6,3 +6,8 @@ google-api-python-client
 openpyxl
 matplotlib
 gdown
+PyPDF2
+easyocr
+Pillow
+PyMuPDF
+numpy

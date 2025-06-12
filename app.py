@@ -8,7 +8,7 @@ st.set_page_config(page_title="Gestione Spese", layout="wide")
 
 # === CONFIGURAZIONE ===
 GDRIVE_FILE_ID = "1PJ9TCcq4iBHeg8CpC1KWss0UWSg86BJn"
-EXCEL_PATH = "Spese_Leo.xlsx"
+EXCEL_PATH = "Spese_App.xlsx"
 
 # Scarica il file Excel da Google Drive
 @st.cache_data

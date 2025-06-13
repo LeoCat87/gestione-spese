@@ -110,6 +110,7 @@ if vista == "Spese dettagliate":
     df_mostrato["Valore"] = df_mostrato["Valore"].map(formatta_euro)
 
     st.dataframe(df_mostrato, use_container_width=True)
+
     esporta_excel(df_filtrato.drop(columns=["Categoria"]), nome_file="Spese_dettagliate.xlsx")
     esporta_pdf(df_filtrato.drop(columns=["Categoria"]), nome_file="Spese_dettagliate.pdf", titolo="Spese Dettagliate")
 
@@ -162,6 +163,7 @@ elif vista == "Riepilogo mensile":
         df_export = df_riepilogo.reset_index().rename(columns={"index": "Categoria"})
         esporta_excel(df_export, nome_file="Riepilogo_mensile.xlsx")
         esporta_pdf(df_export, nome_file="Riepilogo_mensile.pdf", titolo="Riepilogo Mensile")
+
 
         # HTML tabella
         html = """
@@ -270,6 +272,7 @@ elif vista == "Dashboard":
         st.dataframe(df_tabella, hide_index=True)
         esporta_excel(df_tabella, nome_file="Dashboard_finanziaria.xlsx")
         esporta_pdf(df_tabella, nome_file="Dashboard_finanziaria.pdf", titolo="Dashboard Finanziaria")
+
 
         # Grafico
         df_grafico = df_macrocategorie[mesi_ordinati].transpose()

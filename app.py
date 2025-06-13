@@ -65,23 +65,23 @@ if vista == "Spese dettagliate":
 elif vista == "Riepilogo mensile":
     st.title("📊 Riepilogo Mensile per Tag")
 
-    # === DEFINIZIONE MACROCATEGORIE E ORDINE ===
-    entrate = ["Stipendio", "Affitto Savoldo 4 + generico"]
-    uscite_nec = [
-        "PAC Investimenti", "Donazioni (StC, Unicef, Greenpeace)", "Mutuo", "Luce&Gas",
-        "Internet/Telefono", "Mezzi", "Spese condominiali", "Spese comuni",
-        "Auto (benzina, noleggio, pedaggi, parcheggi)", "Spesa cibo", "Tari", "Unobravo"
-    ]
-    uscite_var = [
-        "Amazon", "Bolli governativi", "Farmacia/Visite", "Food Delivery", "Generiche", "Multa",
-        "Uscite (Pranzi,Cena,Apericena,Pub,etc)", "Prelievi", "Regali", "Sharing (auto, motorino, bici)",
-        "Shopping (vestiti, mobili,...)", "Stireria", "Viaggi (treno, aereo, hotel, attrazioni, concerti, cinema)"
-    ]
-    ordine_finale = entrate + uscite_nec + uscite_var
+    # === DEFINIZIONE MACROCATEGORIE ===
+    mappa_macrocategorie = {
+        "📌 Entrate": ["Stipendio", "Affitto Savoldo 4 + generico"],
+        "📌 Uscite necessarie": [
+            "PAC Investimenti", "Donazioni (StC, Unicef, Greenpeace)", "Mutuo", "Luce&Gas",
+            "Internet/Telefono", "Mezzi", "Spese condominiali", "Spese comuni",
+            "Auto (benzina, noleggio, pedaggi, parcheggi)", "Spesa cibo", "Tari", "Unobravo"
+        ],
+        "📌 Uscite variabili": [
+            "Amazon", "Bolli governativi", "Farmacia/Visite", "Food Delivery", "Generiche", "Multa",
+            "Uscite (Pranzi,Cena,Apericena,Pub,etc)", "Prelievi", "Regali", "Sharing (auto, motorino, bici)",
+            "Shopping (vestiti, mobili,...)", "Stireria", "Viaggi (treno, aereo, hotel, attrazioni, concerti, cinema)"
+        ]
+    }
 
-    # === ESTRAI DATI DA FOGLIO ===
+    # === CARICA DATI ===
     sheet = pd.read_excel(EXCEL_PATH, sheet_name="Spese Leo", header=None)
-
     mesi_excel = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
                   "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
 
@@ -104,19 +104,29 @@ elif vista == "Riepilogo mensile":
     if spese_totali:
         df_spese = pd.concat(spese_totali, ignore_index=True)
         df_riepilogo = df_spese.groupby(["Tag", "Mese"])["Valore"].sum().unstack(fill_value=0)
-
         mesi_ordinati = [m.capitalize() for m in mesi_excel]
         df_riepilogo = df_riepilogo.reindex(columns=mesi_ordinati, fill_value=0)
 
-        # Applica ordinamento fisso delle categorie
-        df_riepilogo = df_riepilogo.loc[[tag for tag in ordine_finale if tag in df_riepilogo.index]]
+        # === Costruisci tabella con intestazioni visive ===
+        righe_tabella = []
+        for macro, tags in mappa_macrocategorie.items():
+            # Riga intestazione della macrocategoria
+            riga_macro = {"Categoria": macro}
+            riga_macro.update({mese: "–" for mese in mesi_ordinati})
+            righe_tabella.append(riga_macro)
 
-        # Formattazione finale
-        df_formattato = df_riepilogo.reset_index().rename(columns={"Tag": "Categoria"})
-        for mese in mesi_ordinati:
-            df_formattato[mese] = df_formattato[mese].apply(lambda x: formatta_euro(x) if x else "€ 0,00")
+            # Righe dei tag sotto quella macrocategoria
+            for tag in tags:
+                if tag in df_riepilogo.index:
+                    valori = df_riepilogo.loc[tag]
+                    riga = {"Categoria": tag}
+                    for mese in mesi_ordinati:
+                        riga[mese] = formatta_euro(valori[mese]) if valori[mese] else "€ 0,00"
+                    righe_tabella.append(riga)
 
-        st.dataframe(df_formattato, use_container_width=True, hide_index=True)
+        df_finale = pd.DataFrame(righe_tabella)
+
+        st.dataframe(df_finale, use_container_width=True, hide_index=True)
     else:
         st.warning("Nessuna spesa trovata nei blocchi mensili del foglio 'Spese Leo'.")
 

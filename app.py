@@ -75,10 +75,11 @@ elif vista == "Riepilogo mensile":
     sheet = pd.read_excel(EXCEL_PATH, sheet_name="Spese Leo", header=None)
     mesi_excel = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
                   "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
-    col_mese = {cella.lower(): col_idx
-                for col_idx in range(sheet.shape[1])
-                if isinstance(sheet.iloc[0, col_idx], str)
-                and sheet.iloc[0, col_idx].lower() in mesi_excel}
+    col_mese = {}
+for col_idx in range(sheet.shape[1]):
+    cella = sheet.iloc[0, col_idx]
+    if isinstance(cella, str) and cella.lower() in mesi_excel:
+        col_mese[cella.lower()] = col_idx
 
     spese_totali = []
     for mese_lower, start_col in col_mese.items():

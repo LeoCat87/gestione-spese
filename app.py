@@ -2,6 +2,51 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import gdown
+import io
+from fpdf import FPDF
+
+def esporta_excel(df, nome_file="report.xlsx"):
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False)
+    st.download_button(
+        label="📥 Scarica Excel",
+        data=buffer.getvalue(),
+        file_name=nome_file,
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+def esporta_pdf(df, nome_file="report.pdf", titolo="Report"):
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(0, 10, titolo, ln=True, align='C')
+    pdf.ln(10)
+    pdf.set_font("Arial", size=10)
+
+    # intestazione
+    col_widths = [40] + [30] * (len(df.columns) - 1)
+    for i, col in enumerate(df.columns):
+        pdf.cell(col_widths[i], 10, str(col), border=1)
+    pdf.ln()
+
+    # righe
+    for _, row in df.iterrows():
+        for i, col in enumerate(df.columns):
+            testo = str(row[col])
+            pdf.cell(col_widths[i], 10, testo[:20], border=1)
+        pdf.ln()
+
+    buffer = io.BytesIO()
+    pdf.output(buffer)
+    st.download_button(
+        label="🧾 Scarica PDF",
+        data=buffer.getvalue(),
+        file_name=nome_file,
+        mime="application/pdf"
+    )
+
 st.set_page_config(page_title="Gestione Spese", layout="wide")
 # === CONFIGURAZIONE ===
 GDRIVE_FILE_ID = "1PJ9TCcq4iBHeg8CpC1KWss0UWSg86BJn"

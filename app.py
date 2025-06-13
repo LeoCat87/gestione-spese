@@ -113,9 +113,9 @@ elif vista == "Riepilogo mensile":
         mese_corr = datetime.today().month
         mesi_da_media = mesi_ordinati[:mese_corr - 1] if mese_corr > 1 else []
         if mesi_da_media:
-            df_riepilogo["Media fino al mese scorso"] = df_riepilogo[mesi_da_media].mean(axis=1)
+            df_riepilogo["Media YTD"] = df_riepilogo[mesi_da_media].mean(axis=1)
         else:
-            df_riepilogo["Media fino al mese scorso"] = 0
+            df_riepilogo["Media YTD"] = 0
 
         # Costruzione tabella HTML
         html = """
@@ -126,7 +126,7 @@ elif vista == "Riepilogo mensile":
         </style>
         <table>
             <tr>
-                <th>Categoria</th>""" + "".join(f"<th>{mese}</th>" for mese in mesi_ordinati) + "<th>Media precedente</th></tr>"
+                <th>Categoria</th>""" + "".join(f"<th>{mese}</th>" for mese in mesi_ordinati) + "<th>Media YTD</th></tr>"
 
         for macro, tags in mappa_macrocategorie.items():
             html += f'<tr class="macro"><td colspan="{len(mesi_ordinati)+2}">{macro}</td></tr>'
@@ -165,7 +165,7 @@ elif vista == "Dashboard":
         ]
     }
 
-    mesi = df_riepilogo.columns
+    mesi = df_riepilogo.columns.tolist()
     df_macrocategorie = pd.DataFrame(columns=mesi)
 
     for macro, sottotag in mappa_macrocategorie.items():
@@ -180,6 +180,13 @@ elif vista == "Dashboard":
     )
     df_macrocategorie.loc["Risparmio cumulato"] = df_macrocategorie.loc["Risparmio mese"].cumsum()
 
+    # Calcola Media YTD fino al mese precedente
+    from datetime import datetime
+    mese_corr = datetime.today().month
+    mesi_ytd = mesi[:mese_corr - 1] if mese_corr > 1 else []
+    df_macrocategorie["Media YTD"] = df_macrocategorie[mesi_ytd].mean(axis=1) if mesi_ytd else 0
+
+    # Tabella formattata
     df_tabella = df_macrocategorie.copy().reset_index().rename(columns={"index": "Voce"})
     for col in df_tabella.columns[1:]:
         df_tabella[col] = df_tabella[col].apply(lambda x: formatta_euro(x) if pd.notnull(x) else "€ 0,00")

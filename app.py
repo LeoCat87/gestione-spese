@@ -65,20 +65,32 @@ if vista == "Spese dettagliate":
 elif vista == "Riepilogo mensile":
     st.title("📊 Riepilogo Mensile per Tag")
 
-    # Carica foglio Spese Leo completo per ricostruzione
+    # === DEFINIZIONE MACROCATEGORIE E ORDINE ===
+    entrate = ["Stipendio", "Affitto Savoldo 4 + generico"]
+    uscite_nec = [
+        "PAC Investimenti", "Donazioni (StC, Unicef, Greenpeace)", "Mutuo", "Luce&Gas",
+        "Internet/Telefono", "Mezzi", "Spese condominiali", "Spese comuni",
+        "Auto (benzina, noleggio, pedaggi, parcheggi)", "Spesa cibo", "Tari", "Unobravo"
+    ]
+    uscite_var = [
+        "Amazon", "Bolli governativi", "Farmacia/Visite", "Food Delivery", "Generiche", "Multa",
+        "Uscite (Pranzi,Cena,Apericena,Pub,etc)", "Prelievi", "Regali", "Sharing (auto, motorino, bici)",
+        "Shopping (vestiti, mobili,...)", "Stireria", "Viaggi (treno, aereo, hotel, attrazioni, concerti, cinema)"
+    ]
+    ordine_finale = entrate + uscite_nec + uscite_var
+
+    # === ESTRAI DATI DA FOGLIO ===
     sheet = pd.read_excel(EXCEL_PATH, sheet_name="Spese Leo", header=None)
 
     mesi_excel = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
                   "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
 
-    # Trova blocchi di colonne per ciascun mese
     col_mese = {}
     for col_idx in range(sheet.shape[1]):
         cella = sheet.iloc[0, col_idx]
         if isinstance(cella, str) and cella.lower() in mesi_excel:
             col_mese[cella.lower()] = col_idx
 
-    # Estrai e unisci le spese di tutti i mesi
     spese_totali = []
     for mese, start_col in col_mese.items():
         intestazioni = sheet.iloc[1, start_col:start_col+3].tolist()
@@ -91,21 +103,20 @@ elif vista == "Riepilogo mensile":
 
     if spese_totali:
         df_spese = pd.concat(spese_totali, ignore_index=True)
-
-        # Riepilogo: somma per Tag e Mese
         df_riepilogo = df_spese.groupby(["Tag", "Mese"])["Valore"].sum().unstack(fill_value=0)
 
-        # Ordina colonne per mese
         mesi_ordinati = [m.capitalize() for m in mesi_excel]
         df_riepilogo = df_riepilogo.reindex(columns=mesi_ordinati, fill_value=0)
 
-        # Formatta in euro
+        # Applica ordinamento fisso delle categorie
+        df_riepilogo = df_riepilogo.loc[[tag for tag in ordine_finale if tag in df_riepilogo.index]]
+
+        # Formattazione finale
         df_formattato = df_riepilogo.reset_index().rename(columns={"Tag": "Categoria"})
         for mese in mesi_ordinati:
             df_formattato[mese] = df_formattato[mese].apply(lambda x: formatta_euro(x) if x else "€ 0,00")
 
-        st.dataframe(df_formattato, use_container_width=True)
-
+        st.dataframe(df_formattato, use_container_width=True, hide_index=True)
     else:
         st.warning("Nessuna spesa trovata nei blocchi mensili del foglio 'Spese Leo'.")
 

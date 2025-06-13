@@ -108,7 +108,7 @@ elif vista == "Riepilogo mensile":
         mesi_ordinati = [m.capitalize() for m in mesi_excel]
         df_riepilogo = df_riepilogo.reindex(columns=mesi_ordinati, fill_value=0)
 
-        # Calcola media fino al mese scorso
+        # Calcola "Media YTD" fino al mese precedente
         from datetime import datetime
         mese_corr = datetime.today().month
         mesi_da_media = mesi_ordinati[:mese_corr - 1] if mese_corr > 1 else []
@@ -137,7 +137,7 @@ elif vista == "Riepilogo mensile":
                     for mese in mesi_ordinati:
                         euro = formatta_euro(r[mese]) if r[mese] else "€ 0,00"
                         html += f"<td>{euro}</td>"
-                    media = formatta_euro(r["Media fino al mese scorso"]) if r["Media fino al mese scorso"] else "€ 0,00"
+                    media = formatta_euro(r["Media YTD"]) if r["Media YTD"] else "€ 0,00"
                     html += f"<td>{media}</td></tr>"
 
         html += "</table>"

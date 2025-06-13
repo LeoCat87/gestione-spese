@@ -110,7 +110,7 @@ elif vista == "Dashboard":
     from datetime import datetime
     mese_corrente = datetime.today().month
     mesi_da_includere = mesi[:mese_corrente - 1]  # solo fino al mese precedente
-    df_macrocategorie["Media fino al mese scorso"] = df_macrocategorie[mesi_da_includere].mean(axis=1)
+    df_macrocategorie["Media YTD"] = df_macrocategorie[mesi_da_includere].mean(axis=1)
 
     # === Tabella formattata ===
     df_tabella = df_macrocategorie.copy().reset_index().rename(columns={"index": "Voce"})

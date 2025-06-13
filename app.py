@@ -64,10 +64,58 @@ if vista == "Spese dettagliate":
 # === VISTA 2: RIEPILOGO MENSILE ===
 elif vista == "Riepilogo mensile":
     st.title("📊 Riepilogo Mensile per Tag")
+
     df_riepilogo = carica_riepilogo()
+
+    # Formatta valori in euro
     df_formattato = df_riepilogo.applymap(lambda x: formatta_euro(x) if isinstance(x, (int, float)) else x)
     df_formattato = df_formattato.reset_index().rename(columns={df_formattato.columns[0]: "Categoria"})
-    st.dataframe(df_formattato, use_container_width=True)
+
+    # Definisci intestazione colonne
+    mesi_ordinati = [
+        "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+        "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
+    ]
+    colonne_finali = ["Categoria"] + mesi_ordinati
+    df_formattato.columns = colonne_finali  # Imposta intestazioni corrette
+
+    # Inserisci righe vuote/separatori
+    def inserisci_sottotitoli(df, titolo):
+        riga = pd.DataFrame([[titolo] + [""] * (len(df.columns) - 1)], columns=df.columns)
+        return riga
+
+    # Suddividi per categoria
+    def filtra_sotto(df, tags):
+        return df[df["Categoria"].isin(tags)]
+
+    # Definizione categorie
+    entrate = ["Stipendio", "Affitto Savoldo 4 + generico"]
+    uscite_nec = [
+        "PAC Investimenti", "Donazioni (StC, Unicef, Greenpeace)", "Mutuo", "Luce&Gas",
+        "Internet/Telefono", "Mezzi", "Spese condominiali", "Spese comuni",
+        "Auto (benzina, noleggio, pedaggi, parcheggi)", "Spesa cibo", "Tari", "Unobravo"
+    ]
+    uscite_var = [
+        "Amazon", "Bolli governativi", "Farmacia/Visite", "Food Delivery", "Generiche", "Multa",
+        "Uscite (Pranzi,Cena,Apericena,Pub,etc)", "Prelievi", "Regali", "Sharing (auto, motorino, bici)",
+        "Shopping (vestiti, mobili,...)", "Stireria", "Viaggi (treno, aereo, hotel, attrazioni, concerti, cinema)"
+    ]
+
+    df_entrate = filtra_sotto(df_formattato, entrate)
+    df_uscite_nec = filtra_sotto(df_formattato, uscite_nec)
+    df_uscite_var = filtra_sotto(df_formattato, uscite_var)
+
+    # Ricostruzione tabella ordinata
+    df_finale = pd.concat([
+        inserisci_sottotitoli(df_formattato, "Entrate"),
+        df_entrate,
+        inserisci_sottotitoli(df_formattato, "Uscite necessarie"),
+        df_uscite_nec,
+        inserisci_sottotitoli(df_formattato, "Uscite variabili"),
+        df_uscite_var
+    ], ignore_index=True)
+
+    st.dataframe(df_finale, use_container_width=True)
 
 # === VISTA 3: DASHBOARD ===
 elif vista == "Dashboard":

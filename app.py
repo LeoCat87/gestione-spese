@@ -65,7 +65,6 @@ if vista == "Spese dettagliate":
 elif vista == "Riepilogo mensile":
     st.title("📊 Riepilogo Mensile per Tag")
 
-    # === DEFINIZIONE MACROCATEGORIE ===
     mappa_macrocategorie = {
         "📌 Entrate": ["Stipendio", "Affitto Savoldo 4 + generico"],
         "📌 Uscite necessarie": [
@@ -80,7 +79,6 @@ elif vista == "Riepilogo mensile":
         ]
     }
 
-    # === CARICA DATI ===
     sheet = pd.read_excel(EXCEL_PATH, sheet_name="Spese Leo", header=None)
     mesi_excel = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
                   "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
@@ -107,26 +105,42 @@ elif vista == "Riepilogo mensile":
         mesi_ordinati = [m.capitalize() for m in mesi_excel]
         df_riepilogo = df_riepilogo.reindex(columns=mesi_ordinati, fill_value=0)
 
-        # === Costruisci tabella con intestazioni visive ===
-        righe_tabella = []
-        for macro, tags in mappa_macrocategorie.items():
-            # Riga intestazione della macrocategoria
-            riga_macro = {"Categoria": macro}
-            riga_macro.update({mese: "–" for mese in mesi_ordinati})
-            righe_tabella.append(riga_macro)
+        # Costruisci righe HTML
+        html = """
+        <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            padding: 8px 12px;
+            text-align: left;
+        }
+        .macro {
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }
+        </style>
+        <table>
+            <tr>
+                <th>Categoria</th>""" + "".join(f"<th>{mese}</th>" for mese in mesi_ordinati) + "</tr>"
 
-            # Righe dei tag sotto quella macrocategoria
+        for macro, tags in mappa_macrocategorie.items():
+            html += f'<tr class="macro"><td colspan="{len(mesi_ordinati)+1}">{macro}</td></tr>'
             for tag in tags:
                 if tag in df_riepilogo.index:
                     valori = df_riepilogo.loc[tag]
-                    riga = {"Categoria": tag}
+                    html += f"<tr><td>{tag}</td>"
                     for mese in mesi_ordinati:
-                        riga[mese] = formatta_euro(valori[mese]) if valori[mese] else "€ 0,00"
-                    righe_tabella.append(riga)
+                        valore = valori[mese]
+                        euro = formatta_euro(valore) if valore else "€ 0,00"
+                        html += f"<td>{euro}</td>"
+                    html += "</tr>"
 
-        df_finale = pd.DataFrame(righe_tabella)
+        html += "</table>"
 
-        st.dataframe(df_finale, use_container_width=True, hide_index=True)
+        st.markdown(html, unsafe_allow_html=True)
+
     else:
         st.warning("Nessuna spesa trovata nei blocchi mensili del foglio 'Spese Leo'.")
 

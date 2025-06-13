@@ -65,57 +65,44 @@ if vista == "Spese dettagliate":
 elif vista == "Riepilogo mensile":
     st.title("📊 Riepilogo Mensile per Tag")
 
-    df_riepilogo = carica_riepilogo()
+    df_spese = carica_spese()
 
-    # Formatta valori in euro
-    df_formattato = df_riepilogo.applymap(lambda x: formatta_euro(x) if isinstance(x, (int, float)) else x)
-    df_formattato = df_formattato.reset_index().rename(columns={df_formattato.columns[0]: "Categoria"})
+    # Estrai il nome dei mesi dalla riga di intestazione del file Excel
+    mesi_excel = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+                  "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"]
 
-    # Definisci intestazione colonne
-    mesi_ordinati = [
-        "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
-        "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
-    ]
-    colonne_finali = ["Categoria"] + mesi_ordinati
-    df_formattato.columns = colonne_finali  # Imposta intestazioni corrette
+    # Trova il mese in base alla colonna in cui è stata trovata la riga
+    # Nel tuo caso, ogni spesa è già stata associata a un mese nella struttura della tabella
+    # Ma se manca la colonna "Mese", la creiamo in base alla colonna in cui si trovava la riga
 
-    # Inserisci righe vuote/separatori
-    def inserisci_sottotitoli(df, titolo):
-        riga = pd.DataFrame([[titolo] + [""] * (len(df.columns) - 1)], columns=df.columns)
-        return riga
+    # Se non esiste già la colonna 'Mese', deducila dalla posizione del file
+    if "Mese" not in df_spese.columns:
+        df_spese["Mese"] = None
+        sheet = pd.read_excel(EXCEL_PATH, sheet_name="Spese Leo", header=None)
+        intestazioni = sheet.iloc[0].dropna().tolist()
+        mesi_presenti = [m for m in intestazioni if m in mesi_excel]
+        mese_corrente = None
+        for col_idx in range(sheet.shape[1]):
+            cell = sheet.iloc[0, col_idx]
+            if cell in mesi_excel:
+                mese_corrente = cell
+            elif col_idx > 0 and sheet.iloc[1, col_idx] == "Valore":
+                col_mese = mesi_presenti.pop(0)
+                df_spese.loc[df_spese["Valore"].notna(), "Mese"] = col_mese
 
-    # Suddividi per categoria
-    def filtra_sotto(df, tags):
-        return df[df["Categoria"].isin(tags)]
+    # Riepilogo: somma per Tag e Mese
+    df_riepilogo = df_spese.groupby(["Tag", "Mese"])["Valore"].sum().unstack(fill_value=0)
 
-    # Definizione categorie
-    entrate = ["Stipendio", "Affitto Savoldo 4 + generico"]
-    uscite_nec = [
-        "PAC Investimenti", "Donazioni (StC, Unicef, Greenpeace)", "Mutuo", "Luce&Gas",
-        "Internet/Telefono", "Mezzi", "Spese condominiali", "Spese comuni",
-        "Auto (benzina, noleggio, pedaggi, parcheggi)", "Spesa cibo", "Tari", "Unobravo"
-    ]
-    uscite_var = [
-        "Amazon", "Bolli governativi", "Farmacia/Visite", "Food Delivery", "Generiche", "Multa",
-        "Uscite (Pranzi,Cena,Apericena,Pub,etc)", "Prelievi", "Regali", "Sharing (auto, motorino, bici)",
-        "Shopping (vestiti, mobili,...)", "Stireria", "Viaggi (treno, aereo, hotel, attrazioni, concerti, cinema)"
-    ]
+    # Riordina le colonne dei mesi
+    df_riepilogo = df_riepilogo.reindex(columns=mesi_excel, fill_value=0)
 
-    df_entrate = filtra_sotto(df_formattato, entrate)
-    df_uscite_nec = filtra_sotto(df_formattato, uscite_nec)
-    df_uscite_var = filtra_sotto(df_formattato, uscite_var)
+    # Formatta in euro
+    df_formattato = df_riepilogo.reset_index()
+    df_formattato.columns = ["Categoria"] + mesi_excel
+    for mese in mesi_excel:
+        df_formattato[mese] = df_formattato[mese].apply(lambda x: formatta_euro(x) if x else "€ 0,00")
 
-    # Ricostruzione tabella ordinata
-    df_finale = pd.concat([
-        inserisci_sottotitoli(df_formattato, "Entrate"),
-        df_entrate,
-        inserisci_sottotitoli(df_formattato, "Uscite necessarie"),
-        df_uscite_nec,
-        inserisci_sottotitoli(df_formattato, "Uscite variabili"),
-        df_uscite_var
-    ], ignore_index=True)
-
-    st.dataframe(df_finale, use_container_width=True)
+    st.dataframe(df_formattato, use_container_width=True)
 
 # === VISTA 3: DASHBOARD ===
 elif vista == "Dashboard":

@@ -105,16 +105,18 @@ elif vista == "Riepilogo mensile":
         mesi_ordinati = [m.capitalize() for m in mesi_excel]
         df_riepilogo = df_riepilogo.reindex(columns=mesi_ordinati, fill_value=0)
 
-        # Costruisci righe HTML
+        # Tabella HTML con intestazioni visive e colonne auto-adattive
         html = """
         <style>
         table {
             border-collapse: collapse;
-            width: 100%;
+            width: auto;
+            table-layout: auto;
         }
         th, td {
-            padding: 8px 12px;
+            padding: 6px 12px;
             text-align: left;
+            white-space: nowrap;
         }
         .macro {
             background-color: #f0f0f0;
@@ -140,7 +142,6 @@ elif vista == "Riepilogo mensile":
         html += "</table>"
 
         st.markdown(html, unsafe_allow_html=True)
-
     else:
         st.warning("Nessuna spesa trovata nei blocchi mensili del foglio 'Spese Leo'.")
 
@@ -183,28 +184,18 @@ elif vista == "Dashboard":
     )
     df_macrocategorie.loc["Risparmio cumulato"] = df_macrocategorie.loc["Risparmio mese"].cumsum()
 
-    # === Calcola la media fino al mese scorso ===
-    from datetime import datetime
-    mese_corrente = datetime.today().month
-    mesi_da_includere = mesi[:mese_corrente - 1]  # solo fino al mese precedente
-    df_macrocategorie["Media YTD"] = df_macrocategorie[mesi_da_includere].mean(axis=1)
-
-    # === Tabella formattata ===
+    # Tabella formattata
     df_tabella = df_macrocategorie.copy().reset_index().rename(columns={"index": "Voce"})
     for col in df_tabella.columns[1:]:
-    df_tabella[col] = df_tabella[col].apply(lambda x: formatta_euro(x) if pd.notnull(x) else "€ 0,00")
+        df_tabella[col] = df_tabella[col].apply(lambda x: formatta_euro(x) if pd.notnull(x) else "€ 0,00")
 
-    # Mostra la tabella con adattamento automatico delle colonne
     st.subheader("📊 Tabella riepilogo")
     st.dataframe(df_tabella, hide_index=True)
 
-
-    st.subheader("📊 Tabella riepilogo")
-    st.dataframe(df_tabella, use_container_width=True, hide_index=True)
-
-    # === Grafico ===
+    # Grafico
     df_grafico = df_macrocategorie[mesi].transpose()
     st.subheader("📈 Andamento mensile")
+    import matplotlib.pyplot as plt
     fig, ax = plt.subplots(figsize=(12, 6))
     df_grafico.plot(kind='bar', ax=ax)
     ax.set_title("Entrate, Uscite e Risparmio per mese")

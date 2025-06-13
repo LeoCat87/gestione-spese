@@ -65,44 +65,49 @@ if vista == "Spese dettagliate":
 elif vista == "Riepilogo mensile":
     st.title("📊 Riepilogo Mensile per Tag")
 
-    df_spese = carica_spese()
+    # Carica foglio Spese Leo completo per ricostruzione
+    sheet = pd.read_excel(EXCEL_PATH, sheet_name="Spese Leo", header=None)
 
-    # Estrai il nome dei mesi dalla riga di intestazione del file Excel
-    mesi_excel = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
-                  "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"]
+    mesi_excel = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
+                  "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
 
-    # Trova il mese in base alla colonna in cui è stata trovata la riga
-    # Nel tuo caso, ogni spesa è già stata associata a un mese nella struttura della tabella
-    # Ma se manca la colonna "Mese", la creiamo in base alla colonna in cui si trovava la riga
+    # Trova blocchi di colonne per ciascun mese
+    col_mese = {}
+    for col_idx in range(sheet.shape[1]):
+        cella = sheet.iloc[0, col_idx]
+        if isinstance(cella, str) and cella.lower() in mesi_excel:
+            col_mese[cella.lower()] = col_idx
 
-    # Se non esiste già la colonna 'Mese', deducila dalla posizione del file
-    if "Mese" not in df_spese.columns:
-        df_spese["Mese"] = None
-        sheet = pd.read_excel(EXCEL_PATH, sheet_name="Spese Leo", header=None)
-        intestazioni = sheet.iloc[0].dropna().tolist()
-        mesi_presenti = [m for m in intestazioni if m in mesi_excel]
-        mese_corrente = None
-        for col_idx in range(sheet.shape[1]):
-            cell = sheet.iloc[0, col_idx]
-            if cell in mesi_excel:
-                mese_corrente = cell
-            elif col_idx > 0 and sheet.iloc[1, col_idx] == "Valore":
-                col_mese = mesi_presenti.pop(0)
-                df_spese.loc[df_spese["Valore"].notna(), "Mese"] = col_mese
+    # Estrai e unisci le spese di tutti i mesi
+    spese_totali = []
+    for mese, start_col in col_mese.items():
+        intestazioni = sheet.iloc[1, start_col:start_col+3].tolist()
+        if "Valore" in intestazioni and "Tag" in intestazioni:
+            df_blocco = sheet.iloc[2:, start_col:start_col+3].copy()
+            df_blocco.columns = intestazioni
+            df_blocco = df_blocco.dropna(subset=["Valore", "Tag"])
+            df_blocco["Mese"] = mese.capitalize()
+            spese_totali.append(df_blocco)
 
-    # Riepilogo: somma per Tag e Mese
-    df_riepilogo = df_spese.groupby(["Tag", "Mese"])["Valore"].sum().unstack(fill_value=0)
+    if spese_totali:
+        df_spese = pd.concat(spese_totali, ignore_index=True)
 
-    # Riordina le colonne dei mesi
-    df_riepilogo = df_riepilogo.reindex(columns=mesi_excel, fill_value=0)
+        # Riepilogo: somma per Tag e Mese
+        df_riepilogo = df_spese.groupby(["Tag", "Mese"])["Valore"].sum().unstack(fill_value=0)
 
-    # Formatta in euro
-    df_formattato = df_riepilogo.reset_index()
-    df_formattato.columns = ["Categoria"] + mesi_excel
-    for mese in mesi_excel:
-        df_formattato[mese] = df_formattato[mese].apply(lambda x: formatta_euro(x) if x else "€ 0,00")
+        # Ordina colonne per mese
+        mesi_ordinati = [m.capitalize() for m in mesi_excel]
+        df_riepilogo = df_riepilogo.reindex(columns=mesi_ordinati, fill_value=0)
 
-    st.dataframe(df_formattato, use_container_width=True)
+        # Formatta in euro
+        df_formattato = df_riepilogo.reset_index().rename(columns={"Tag": "Categoria"})
+        for mese in mesi_ordinati:
+            df_formattato[mese] = df_formattato[mese].apply(lambda x: formatta_euro(x) if x else "€ 0,00")
+
+        st.dataframe(df_formattato, use_container_width=True)
+
+    else:
+        st.warning("Nessuna spesa trovata nei blocchi mensili del foglio 'Spese Leo'.")
 
 # === VISTA 3: DASHBOARD ===
 elif vista == "Dashboard":

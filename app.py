@@ -5,7 +5,7 @@ import gdown
 st.set_page_config(page_title="Gestione Spese", layout="wide")
 # === CONFIGURAZIONE ===
 GDRIVE_FILE_ID = "1PJ9TCcq4iBHeg8CpC1KWss0UWSg86BJn"
-EXCEL_PATH = "Spese_Leo.xlsx"
+EXCEL_PATH = "Spese_App.xlsx"
 # Scarica il file Excel da Google Drive
 @st.cache_data
 def scarica_excel_da_drive():
@@ -15,7 +15,7 @@ scarica_excel_da_drive()
 # === FUNZIONI DI CARICAMENTO ===
 @st.cache_data
 def carica_spese():
-    df = pd.read_excel(EXCEL_PATH, sheet_name="Spese 2025", header=[1])
+    df = pd.read_excel(EXCEL_PATH, sheet_name="Spese Leo", header=[1])
     df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
     df = df.dropna(subset=["Valore", "Tag"])
     df = df.reset_index(drop=True)
@@ -31,12 +31,12 @@ def carica_spese():
     return df
 @st.cache_data
 def carica_riepilogo():
-    df = pd.read_excel(EXCEL_PATH, sheet_name="Riepilogo 2025", index_col=0)
+    df = pd.read_excel(EXCEL_PATH, sheet_name="Riepilogo Leo", index_col=0)
     df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
     return df
 @st.cache_data
 def carica_dashboard():
-    df = pd.read_excel(EXCEL_PATH, sheet_name="Riepilogo 2025", index_col=0)
+    df = pd.read_excel(EXCEL_PATH, sheet_name="Riepilogo Leo", index_col=0)
     df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
     df["Total"] = df.get("Total", pd.Series(0))  # Se manca "Total", metti 0
     return df

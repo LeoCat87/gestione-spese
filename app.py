@@ -67,29 +67,39 @@ elif vista == "Riepilogo mensile":
 
     mappa_macrocategorie = {
         "📌 Entrate": ["Stipendio", "Affitto Savoldo 4 + generico"],
-        "📌 Uscite necessarie": [...],  # come prima
-        "📌 Uscite variabili": [...],     # come prima
+        "📌 Uscite necessarie": [
+            "PAC Investimenti", "Donazioni (StC, Unicef, Greenpeace)", "Mutuo", "Luce&Gas",
+            "Internet/Telefono", "Mezzi", "Spese condominiali", "Spese comuni",
+            "Auto (benzina, noleggio, pedaggi, parcheggi)", "Spesa cibo", "Tari", "Unobravo"
+        ],
+        "📌 Uscite variabili": [
+            "Amazon", "Bolli governativi", "Farmacia/Visite", "Food Delivery", "Generiche", "Multa",
+            "Uscite (Pranzi,Cena,Apericena,Pub,etc)", "Prelievi", "Regali", "Sharing (auto, motorino, bici)",
+            "Shopping (vestiti, mobili,...)", "Stireria", "Viaggi (treno, aereo, hotel, attrazioni, concerti, cinema)"
+        ]
     }
 
-    # --- Carica e strutture ---
+    # Carica foglio
     sheet = pd.read_excel(EXCEL_PATH, sheet_name="Spese Leo", header=None)
     mesi_excel = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
                   "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
+
+    # Trova blocchi per mese
     col_mese = {}
-for col_idx in range(sheet.shape[1]):
-    cella = sheet.iloc[0, col_idx]
-    if isinstance(cella, str) and cella.lower() in mesi_excel:
-        col_mese[cella.lower()] = col_idx
+    for col_idx in range(sheet.shape[1]):
+        cella = sheet.iloc[0, col_idx]
+        if isinstance(cella, str) and cella.lower() in mesi_excel:
+            col_mese[cella.lower()] = col_idx
 
     spese_totali = []
     for mese_lower, start_col in col_mese.items():
-        intest = sheet.iloc[1, start_col:start_col+3].tolist()
-        if "Valore" in intest and "Tag" in intest:
-            df_blk = sheet.iloc[2:, start_col:start_col+3].copy()
-            df_blk.columns = intest
-            df_blk = df_blk.dropna(subset=["Valore", "Tag"])
-            df_blk["Mese"] = mese_lower.capitalize()
-            spese_totali.append(df_blk)
+        intestazioni = sheet.iloc[1, start_col:start_col+3].tolist()
+        if "Valore" in intestazioni and "Tag" in intestazioni:
+            df_blocco = sheet.iloc[2:, start_col:start_col+3].copy()
+            df_blocco.columns = intestazioni
+            df_blocco = df_blocco.dropna(subset=["Valore", "Tag"])
+            df_blocco["Mese"] = mese_lower.capitalize()
+            spese_totali.append(df_blocco)
 
     if spese_totali:
         df_spese = pd.concat(spese_totali, ignore_index=True)
@@ -98,13 +108,10 @@ for col_idx in range(sheet.shape[1]):
         mesi_ordinati = [m.capitalize() for m in mesi_excel]
         df_riepilogo = df_riepilogo.reindex(columns=mesi_ordinati, fill_value=0)
 
-        # Calcola media fino a mese precedente
+        # Calcola media fino al mese scorso
         from datetime import datetime
-        mese_corr = datetime.today().month  # 1-12
-        if mese_corr > 1:
-            mesi_da_media = mesi_ordinati[:mese_corr - 1]
-        else:
-            mesi_da_media = []
+        mese_corr = datetime.today().month
+        mesi_da_media = mesi_ordinati[:mese_corr - 1] if mese_corr > 1 else []
         if mesi_da_media:
             df_riepilogo["Media fino al mese scorso"] = df_riepilogo[mesi_da_media].mean(axis=1)
         else:
@@ -118,19 +125,19 @@ for col_idx in range(sheet.shape[1]):
         .macro {background-color: #f0f0f0; font-weight: bold;}
         </style>
         <table>
-            <tr><th>Categoria</th>
-        """ + "".join(f"<th>{mese}</th>" for mese in mesi_ordinati) + "<th>Media precedente</th></tr>"
+            <tr>
+                <th>Categoria</th>""" + "".join(f"<th>{mese}</th>" for mese in mesi_ordinati) + "<th>Media precedente</th></tr>"
 
         for macro, tags in mappa_macrocategorie.items():
             html += f'<tr class="macro"><td colspan="{len(mesi_ordinati)+2}">{macro}</td></tr>'
             for tag in tags:
                 if tag in df_riepilogo.index:
                     r = df_riepilogo.loc[tag]
-                    html += "<tr><td>{}</td>".format(tag)
+                    html += f"<tr><td>{tag}</td>"
                     for mese in mesi_ordinati:
-                        euro = formatta_euro(r[mese]) if r[mese] else "€ 0,00"
+                        euro = formatta_euro(r[mese]) if r[mese] else "€ 0,00"
                         html += f"<td>{euro}</td>"
-                    media = formatta_euro(r["Media YTD"]) if r["Media YTD"] else "€ 0,00"
+                    media = formatta_euro(r["Media fino al mese scorso"]) if r["Media fino al mese scorso"] else "€ 0,00"
                     html += f"<td>{media}</td></tr>"
 
         html += "</table>"
@@ -144,7 +151,6 @@ elif vista == "Dashboard":
 
     df_riepilogo = carica_riepilogo()
 
-    # === Mappa tag a macrocategorie ===
     mappa_macrocategorie = {
         "Entrate": ["Stipendio", "Affitto Savoldo 4 + generico"],
         "Uscite necessarie": [
@@ -164,10 +170,7 @@ elif vista == "Dashboard":
 
     for macro, sottotag in mappa_macrocategorie.items():
         tag_presenti = [t for t in sottotag if t in df_riepilogo.index]
-        if tag_presenti:
-            somma = df_riepilogo.loc[tag_presenti].sum()
-        else:
-            somma = pd.Series([0] * len(mesi), index=mesi)
+        somma = df_riepilogo.loc[tag_presenti].sum() if tag_presenti else pd.Series([0]*len(mesi), index=mesi)
         df_macrocategorie.loc[macro] = somma
 
     df_macrocategorie.loc["Risparmio mese"] = (
@@ -177,7 +180,6 @@ elif vista == "Dashboard":
     )
     df_macrocategorie.loc["Risparmio cumulato"] = df_macrocategorie.loc["Risparmio mese"].cumsum()
 
-    # Tabella formattata
     df_tabella = df_macrocategorie.copy().reset_index().rename(columns={"index": "Voce"})
     for col in df_tabella.columns[1:]:
         df_tabella[col] = df_tabella[col].apply(lambda x: formatta_euro(x) if pd.notnull(x) else "€ 0,00")
@@ -185,7 +187,6 @@ elif vista == "Dashboard":
     st.subheader("📊 Tabella riepilogo")
     st.dataframe(df_tabella, hide_index=True)
 
-    # Grafico
     df_grafico = df_macrocategorie[mesi].transpose()
     st.subheader("📈 Andamento mensile")
     import matplotlib.pyplot as plt

@@ -66,7 +66,9 @@ elif vista == "Riepilogo mensile":
     st.title("📊 Riepilogo Mensile per Tag")
     df_riepilogo = carica_riepilogo()
     df_formattato = df_riepilogo.applymap(lambda x: formatta_euro(x) if isinstance(x, (int, float)) else x)
-    st.dataframe(df_formattato, use_container_width=True, hide_index=True)
+    df_formattato = df_formattato.reset_index().rename(columns={df_formattato.columns[0]: "Categoria"})
+    st.dataframe(df_formattato, use_container_width=True)
+
 # === VISTA 3: DASHBOARD ===
 elif vista == "Dashboard":
     st.title("📈 Dashboard")

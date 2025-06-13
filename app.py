@@ -192,7 +192,12 @@ elif vista == "Dashboard":
     # === Tabella formattata ===
     df_tabella = df_macrocategorie.copy().reset_index().rename(columns={"index": "Voce"})
     for col in df_tabella.columns[1:]:
-        df_tabella[col] = df_tabella[col].apply(lambda x: formatta_euro(x) if pd.notnull(x) else "€ 0,00")
+    df_tabella[col] = df_tabella[col].apply(lambda x: formatta_euro(x) if pd.notnull(x) else "€ 0,00")
+
+    # Mostra la tabella con adattamento automatico delle colonne
+    st.subheader("📊 Tabella riepilogo")
+    st.dataframe(df_tabella, hide_index=True)
+
 
     st.subheader("📊 Tabella riepilogo")
     st.dataframe(df_tabella, use_container_width=True, hide_index=True)

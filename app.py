@@ -1,248 +1,100 @@
 import streamlit as st
 import pandas as pd
-import gdown
-import openpyxl
 import matplotlib.pyplot as plt
-import os
 import io
-from datetime import datetime
+from openpyxl import load_workbook
 
-st.set_page_config(page_title="Gestione Spese", layout="wide")
+st.set_page_config(layout="wide")
 
-# === CONFIGURAZIONE ===
-GDRIVE_FILE_ID = "1PJ9TCcq4iBHeg8CpC1KWss0UWSg86BJn"
 EXCEL_FILE = "Spese_App.xlsx"
+FOGLIO_SPESE = "Spese Leo"
+FOGLIO_RIEPILOGO = "Riepilogo Leo"
 
-# Scarica il file Excel da Google Drive
-@st.cache_data
-def scarica_excel_da_drive():
-    url = f"https://drive.google.com/uc?id={GDRIVE_FILE_ID}"
-    gdown.download(url, EXCEL_FILE, quiet=True)
+mesi_ordinati = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+                 "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"]
 
-scarica_excel_da_drive()
+mappa_macrocategorie = {
+    "Entrate": ["Stipendio", "Altre entrate"],
+    "Uscite necessarie": ["Affitto", "Bolletta", "Spesa", "Abbonamenti"],
+    "Uscite variabili": ["Ristorante", "Shopping", "Svago"],
+    "Risparmio mese": [],  # Calcolato
+    "Risparmio cumulato": []  # Calcolato
+}
 
-# === FUNZIONI DI CARICAMENTO ===
-@st.cache_data
 def carica_spese():
-    df_raw = pd.read_excel(EXCEL_FILE, sheet_name="Spese Leo", header=1)
-    df_raw = df_raw.loc[:, ~df_raw.columns.str.contains("^Unnamed")]
-
-    mesi = [
-        "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
-        "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
-    ]
-
+    df_raw = pd.read_excel(EXCEL_FILE, sheet_name=FOGLIO_SPESE, header=1, engine="openpyxl")
+    mesi = df_raw.columns[1:]
     records = []
+    for mese in mesi:
+        df_mese = df_raw[["Testo", "Valore", "Tag"]].copy()
+        df_mese["Mese"] = mese
+        records.append(df_mese)
+    df = pd.concat(records, ignore_index=True)
+    df = df.dropna(subset=["Testo", "Valore", "Tag"])
+    return df
 
-    for i, mese in enumerate(mesi):
-        col_base = i * 3
-        if col_base + 2 < len(df_raw.columns):
-            sotto_df = df_raw.iloc[:, col_base:col_base+3].copy()
-            sotto_df.columns = ["Testo", "Valore", "Tag"]
-            sotto_df = sotto_df.dropna(how="all", subset=["Valore", "Testo", "Tag"])
-            sotto_df["Mese"] = mese.lower()
-            sotto_df["Tag"] = sotto_df["Tag"].fillna('').astype(str).str.strip().str.capitalize()
-            sotto_df["Testo"] = sotto_df["Testo"].fillna('').astype(str).str.strip()
-            sotto_df["Valore"] = pd.to_numeric(sotto_df["Valore"], errors="coerce")
-            records.append(sotto_df)
+def salva_spese_formattato(df):
+    mesi = df["Mese"].unique()
+    writer = pd.ExcelWriter(EXCEL_FILE, engine="openpyxl")
+    wb = load_workbook(EXCEL_FILE)
+    if FOGLIO_SPESE in wb.sheetnames:
+        wb.remove(wb[FOGLIO_SPESE])
+    wb.create_sheet(FOGLIO_SPESE)
+    writer.book = wb
+    writer.sheets = {ws.title: ws for ws in wb.worksheets}
+    tutti_i_mesi = mesi_ordinati
+    righe = []
+    for mese in tutti_i_mesi:
+        df_mese = df[df["Mese"] == mese]
+        righe.extend(df_mese[["Testo", "Valore", "Tag"]].values.tolist())
+    df_output = pd.DataFrame(righe, columns=["Testo", "Valore", "Tag"])
+    df_output.to_excel(writer, sheet_name=FOGLIO_SPESE, index=False, startrow=1)
+    writer.close()
+    st.cache_data.clear()
 
-    df_finale = pd.concat(records, ignore_index=True)
-    return df_finale
+def vista_riepilogo():
+    st.header("📊 Riepilogo mensile")
+    df = carica_spese()
+    df_riep_cat = pd.pivot_table(df, index="Tag", columns="Mese", values="Valore", aggfunc="sum", fill_value=0)
+    for mese in mesi_ordinati:
+        if mese not in df_riep_cat.columns:
+            df_riep_cat[mese] = 0
+    df_riep_cat = df_riep_cat[mesi_ordinati]
+    df_riep_cat["Totale"] = df_riep_cat.sum(axis=1)
+    st.dataframe(df_riep_cat.style.format("{:.2f}"), use_container_width=True)
 
-def salva_spese_formattato(df_spese):
-    mesi = [
-        "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
-        "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"
-    ]
-
-    with pd.ExcelWriter(EXCEL_FILE, engine="openpyxl", mode="a", if_sheet_exists="overlay") as writer:
-        wb = writer.book
-        if "Spese Leo" in wb.sheetnames:
-            wb.remove(wb["Spese Leo"])
-        ws = wb.create_sheet("Spese Leo", 0)
-
-        header = []
-        for mese in mesi:
-            header.extend(["Testo", "Valore", "Tag"])
-        ws.append(header)
-
-        max_righe = 0
-        for mese in mesi:
-            mese_df = df_spese[df_spese["Mese"] == mese]
-            max_righe = max(max_righe, len(mese_df))
-
-        for i in range(max_righe):
-            row = []
-            for mese in mesi:
-                mese_df = df_spese[df_spese["Mese"] == mese].reset_index(drop=True)
-                if i < len(mese_df):
-                    row.extend([
-                        mese_df.loc[i, "Testo"],
-                        mese_df.loc[i, "Valore"],
-                        mese_df.loc[i, "Tag"]
-                    ])
-                else:
-                    row.extend(["", "", ""])
-            ws.append(row)
-        writer.save()
-
-def formatta_euro(val):
-    return f"€ {val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-
-# === INTERFACCIA ===
-st.sidebar.title("📁 Navigazione")
-vista = st.sidebar.radio("Scegli una vista:", ["Spese dettagliate", "Riepilogo mensile", "Dashboard"])
-
-# === VISTA 1: SPESE DETTAGLIATE ===
-if vista == "Spese dettagliate":
-    st.title("📌 Spese 2025")
-
-    df_spese = carica_spese()
-
-    mesi_disponibili = [
-        "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
-        "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"
-    ]
-    mese_selezionato = st.selectbox("📅 Seleziona mese", mesi_disponibili)
-
-    df_filtrato = df_spese[df_spese["Mese"] == mese_selezionato][["Testo", "Valore", "Tag"]].reset_index(drop=True)
-    st.subheader(f"📝 Modifica spese di {mese_selezionato.capitalize()}")
-
-    edited_df = st.data_editor(df_filtrato, use_container_width=True, hide_index=True)
-    df_spese.loc[df_spese["Mese"] == mese_selezionato, ["Testo", "Valore", "Tag"]] = edited_df
-
-    st.subheader("➕ Aggiungi nuova spesa")
-    with st.form(key="aggiungi_spesa"):
-        nuovo_testo = st.text_input("Descrizione")
-        nuovo_valore = st.number_input("Importo (€)", step=0.01)
-        nuovo_tag = st.text_input("Categoria")
-        submitted = st.form_submit_button("Aggiungi")
-
-        if submitted and nuovo_testo and nuovo_valore != 0:
-            nuova_riga = {
-                "Testo": nuovo_testo,
-                "Valore": nuovo_valore,
-                "Tag": nuovo_tag,
-                "Mese": mese_selezionato
-            }
-            df_spese = pd.concat([df_spese, pd.DataFrame([nuova_riga])], ignore_index=True)
-            st.success("Spesa aggiunta!")
-
-    if st.button("💾 Salva tutte le modifiche"):
-        try:
-            salva_spese_formattato(df_spese)
-            st.cache_data.clear()
-            st.success("File aggiornato correttamente!")
-        except Exception as e:
-            st.error(f"Errore nel salvataggio: {e}")
-
-# === VISTA 2: RIEPILOGO MENSILE ===
-elif vista == "Riepilogo mensile":
-    st.title("📊 Riepilogo mensile")
-
-    df_spese = carica_spese()
-
-    macrocategorie = {
-        "Entrate": ["Stipendio", "Affitto Savoldo 4 + generico"],
-        "Uscite necessarie": [
-            "PAC Investimenti", "Donazioni (StC, Unicef, Greenpeace)", "Mutuo", "Luce&Gas",
-            "Internet/Telefono", "Mezzi", "Spese condominiali", "Spese comuni",
-            "Auto (benzina, noleggio, pedaggi, parcheggi)", "Spesa cibo", "Tari", "Unobravo"
-        ],
-        "Uscite variabili": [
-            "Amazon", "Bolli governativi", "Farmacia/Visite", "Food Delivery", "Generiche", "Multa",
-            "Uscite (Pranzi,Cena,Apericena,Pub,etc)", "Prelievi", "Regali", "Sharing (auto, motorino, bici)",
-            "Shopping (vestiti, mobili,...)", "Stireria", "Viaggi (treno, aereo, hotel, attrazioni, concerti, cinema)"
-        ]
-    }
-
-    df_spese["Mese"] = df_spese["Mese"].str.lower()
-    df_spese["Tag"] = df_spese["Tag"].str.strip()
-
-    df_riep = df_spese.groupby(["Tag", "Mese"])["Valore"].sum().unstack(fill_value=0)
-    mesi_ordinati = [
-        "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
-        "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"
-    ]
-    df_riep = df_riep[[m for m in mesi_ordinati if m in df_riep.columns]]
-
-    righe_finali = []
-    for categoria, tag_list in macrocategorie.items():
-        intestazione = pd.Series([None] * len(df_riep.columns), index=df_riep.columns, name=categoria)
-        righe_finali.append(intestazione)
-        for tag in tag_list:
-            if tag in df_riep.index:
-                righe_finali.append(df_riep.loc[tag])
-
-    df_riep_cat = pd.DataFrame(righe_finali)
-
-    df_formattato = df_riep_cat.copy()
-    for col in df_formattato.columns:
-        df_formattato[col] = df_formattato[col].apply(
-            lambda x: formatta_euro(x) if pd.notnull(x) and isinstance(x, (int, float)) else ""
-        )
-
-    st.dataframe(df_formattato, use_container_width=True, hide_index=False)
-
-# === VISTA 3: DASHBOARD ===
-elif vista == "Dashboard":
-    st.title("📈 Dashboard")
-
-    df_spese = carica_spese()
-
-    macrocategorie = {
-        "Entrate": ["Stipendio", "Affitto Savoldo 4 + generico"],
-        "Uscite necessarie": [
-            "PAC Investimenti", "Donazioni (StC, Unicef, Greenpeace)", "Mutuo", "Luce&Gas",
-            "Internet/Telefono", "Mezzi", "Spese condominiali", "Spese comuni",
-            "Auto (benzina, noleggio, pedaggi, parcheggi)", "Spesa cibo", "Tari", "Unobravo"
-        ],
-        "Uscite variabili": [
-            "Amazon", "Bolli governativi", "Farmacia/Visite", "Food Delivery", "Generiche", "Multa",
-            "Uscite (Pranzi,Cena,Apericena,Pub,etc)", "Prelievi", "Regali", "Sharing (auto, motorino, bici)",
-            "Shopping (vestiti, mobili,...)", "Stireria", "Viaggi (treno, aereo, hotel, attrazioni, concerti, cinema)"
-        ]
-    }
-
-    df_spese["Mese"] = df_spese["Mese"].str.lower()
-    df_spese["Tag"] = df_spese["Tag"].str.strip()
-
-    df_macrocategorie = pd.DataFrame()
-    for categoria, tags in macrocategorie.items():
-        df_categoria = df_spese[df_spese["Tag"].isin(tags)]
-        df_grouped = df_categoria.groupby("Mese")["Valore"].sum()
+def vista_dashboard():
+    st.header("📈 Dashboard")
+    df = carica_spese()
+    df_riep = df.groupby(["Tag", "Mese"])["Valore"].sum().reset_index()
+    df_macrocategorie = pd.DataFrame(0, index=list(mappa_macrocategorie.keys()), columns=mesi_ordinati)
+    for categoria, tags in mappa_macrocategorie.items():
+        df_filtrato = df_riep[df_riep["Tag"].isin(tags)]
+        df_grouped = df_filtrato.groupby("Mese")["Valore"].sum()
+        df_grouped = df_grouped.reindex(mesi_ordinati, fill_value=0)
         df_macrocategorie.loc[categoria] = df_grouped
-
-    mesi_ordinati = [
-        "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
-        "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"
-    ]
-    df_macrocategorie = df_macrocategorie.reindex(columns=mesi_ordinati, fill_value=0)
-
-    df_macrocategorie.loc["Risparmio mese"] = (
-        df_macrocategorie.loc["Entrate"]
-        - df_macrocategorie.loc["Uscite necessarie"]
-        - df_macrocategorie.loc["Uscite variabili"]
-    )
+    df_macrocategorie.loc["Risparmio mese"] = df_macrocategorie.loc["Entrate"] - df_macrocategorie.loc["Uscite necessarie"] - df_macrocategorie.loc["Uscite variabili"]
     df_macrocategorie.loc["Risparmio cumulato"] = df_macrocategorie.loc["Risparmio mese"].cumsum()
+    df_macrocategorie["Total"] = df_macrocategorie.sum(axis=1)
+    st.dataframe(df_macrocategorie.style.format("{:.2f}"), use_container_width=True)
+    df_plot = df_macrocategorie.T.reset_index().rename(columns={"index": "Mese"})
+    df_plot = df_plot[df_plot["Mese"].isin(mesi_ordinati)]
+    df_plot.set_index("Mese", inplace=True)
+    df_plot[["Entrate", "Uscite necessarie", "Uscite variabili", "Risparmio mese"]].plot(kind="bar", figsize=(12, 6))
+    plt.ylabel("Valore in €")
+    st.pyplot(plt.gcf())
+    plt.clf()
+    df_plot[["Risparmio cumulato"]].plot(kind="line", marker="o", figsize=(12, 4))
+    plt.ylabel("Risparmio cumulato")
+    st.pyplot(plt.gcf())
+    plt.clf()
 
-    mese_attuale = datetime.today().month
-    mesi_ytd = mesi_ordinati[:mese_attuale]
-    df_macrocategorie["Media YTD"] = df_macrocategorie[mesi_ytd].mean(axis=1)
+def main():
+    vista = st.sidebar.selectbox("Seleziona vista", ["Riepilogo mensile", "Dashboard"])
+    if vista == "Riepilogo mensile":
+        vista_riepilogo()
+    elif vista == "Dashboard":
+        vista_dashboard()
 
-    df_tabella = df_macrocategorie.reset_index().rename(columns={"index": "Voce"})
-    for col in df_tabella.columns[1:]:
-        df_tabella[col] = df_tabella[col].apply(lambda x: formatta_euro(x) if pd.notnull(x) else "€ 0,00")
-
-    st.subheader("📊 Tabella riepilogo")
-    st.dataframe(df_tabella, use_container_width=True, hide_index=True)
-
-    df_grafico = df_macrocategorie.drop(columns=["Media YTD"], errors="ignore").transpose()
-    st.subheader("📈 Andamento mensile")
-    fig, ax = plt.subplots(figsize=(12, 6))
-    df_grafico.plot(kind="bar", ax=ax)
-    ax.set_title("Entrate, Uscite e Risparmio per mese")
-    ax.set_xlabel("Mese")
-    ax.set_ylabel("Importo (€)")
-    plt.xticks(rotation=45)
-    st.pyplot(fig)
+if __name__ == "__main__":
+    main()

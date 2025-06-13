@@ -148,45 +148,89 @@ elif vista == "Riepilogo mensile":
 elif vista == "Dashboard":
     st.title("📈 Dashboard")
 
-    df_riepilogo = carica_riepilogo()  # eventualmente rimuovibile se non più usato
+    # Mappatura manuale tag → macrocategorie
+    mappa_macrocategorie = {
+        "Entrate": ["Stipendio", "Affitto Savoldo 4 + generico"],
+        "Uscite necessarie": [
+            "PAC Investimenti", "Donazioni (StC, Unicef, Greenpeace)", "Mutuo", "Luce&Gas",
+            "Internet/Telefono", "Mezzi", "Spese condominiali", "Spese comuni",
+            "Auto (benzina, noleggio, pedaggi, parcheggi)", "Spesa cibo", "Tari", "Unobravo"
+        ],
+        "Uscite variabili": [
+            "Amazon", "Bolli governativi", "Farmacia/Visite", "Food Delivery", "Generiche", "Multa",
+            "Uscite (Pranzi,Cena,Apericena,Pub,etc)", "Prelievi", "Regali", "Sharing (auto, motorino, bici)",
+            "Shopping (vestiti, mobili,...)", "Stireria", "Viaggi (treno, aereo, hotel, attrazioni, concerti, cinema)"
+        ]
+    }
 
-    mappa_macrocategorie = {...}  # stessa struttura
+    # Carica dati spese e calcola riepilogo mensile da "Spese Leo"
+    sheet = pd.read_excel(EXCEL_PATH, sheet_name="Spese Leo", header=None)
+    mesi_excel = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
+                  "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
 
-    mesi = df_riepilogo.columns.tolist()
-    df_macrocategorie = pd.DataFrame(columns=mesi)
+    col_mese = {}
+    for col_idx in range(sheet.shape[1]):
+        cella = sheet.iloc[0, col_idx]
+        if isinstance(cella, str) and cella.lower() in mesi_excel:
+            col_mese[cella.lower()] = col_idx
 
-    for macro, sottotag in mappa_macrocategorie.items():
-        tag_presenti = [t for t in sottotag if t in df_riepilogo.index]
-        somma = df_riepilogo.loc[tag_presenti].sum() if tag_presenti else pd.Series([0]*len(mesi), index=mesi)
-        df_macrocategorie.loc[macro] = somma
+    spese_totali = []
+    for mese_lower, start_col in col_mese.items():
+        intestazioni = sheet.iloc[1, start_col:start_col+3].tolist()
+        if "Valore" in intestazioni and "Tag" in intestazioni:
+            df_blocco = sheet.iloc[2:, start_col:start_col+3].copy()
+            df_blocco.columns = intestazioni
+            df_blocco = df_blocco.dropna(subset=["Valore", "Tag"])
+            df_blocco["Mese"] = mese_lower.capitalize()
+            spese_totali.append(df_blocco)
 
-    df_macrocategorie.loc["Risparmio mese"] = (
-        df_macrocategorie.loc["Entrate"]
-        - df_macrocategorie.loc["Uscite necessarie"]
-        - df_macrocategorie.loc["Uscite variabili"]
-    )
-    df_macrocategorie.loc["Risparmio cumulato"] = df_macrocategorie.loc["Risparmio mese"].cumsum()
+    if not spese_totali:
+        st.warning("Nessuna spesa trovata nel foglio 'Spese Leo'.")
+    else:
+        df_spese = pd.concat(spese_totali, ignore_index=True)
+        df_riepilogo = df_spese.groupby(["Tag", "Mese"])["Valore"].sum().unstack(fill_value=0)
 
-    from datetime import datetime
-    mese_corr = datetime.today().month
-    mesi_ytd = mesi[:mese_corr - 1] if mese_corr > 1 else []
-    df_macrocategorie["Media YTD"] = df_macrocategorie[mesi_ytd].mean(axis=1) if mesi_ytd else 0
+        mesi_ordinati = [m.capitalize() for m in mesi_excel]
+        df_riepilogo = df_riepilogo.reindex(columns=mesi_ordinati, fill_value=0)
 
-    df_tabella = df_macrocategorie.copy().reset_index().rename(columns={"index": "Voce"})
-    for col in df_tabella.columns[1:]:
-        df_tabella[col] = df_tabella[col].apply(lambda x: formatta_euro(x) if pd.notnull(x) else "€ 0,00")
+        # Calcolo macrocategorie
+        df_macrocategorie = pd.DataFrame(columns=mesi_ordinati)
+        for macro, sottotag in mappa_macrocategorie.items():
+            tag_presenti = [t for t in sottotag if t in df_riepilogo.index]
+            somma = df_riepilogo.loc[tag_presenti].sum() if tag_presenti else pd.Series([0]*len(mesi_ordinati), index=mesi_ordinati)
+            df_macrocategorie.loc[macro] = somma
 
-    st.subheader("📊 Tabella riepilogo")
-    st.dataframe(df_tabella, hide_index=True)
-    esporta_excel(df_tabella, nome_file="Dashboard_finanziaria.xlsx")
+        # Risparmio mese & cumulato
+        df_macrocategorie.loc["Risparmio mese"] = (
+            df_macrocategorie.loc["Entrate"]
+            - df_macrocategorie.loc["Uscite necessarie"]
+            - df_macrocategorie.loc["Uscite variabili"]
+        )
+        df_macrocategorie.loc["Risparmio cumulato"] = df_macrocategorie.loc["Risparmio mese"].cumsum()
 
-    df_grafico = df_macrocategorie[mesi].transpose()
-    st.subheader("📈 Andamento mensile")
-    import matplotlib.pyplot as plt
-    fig, ax = plt.subplots(figsize=(12, 6))
-    df_grafico.plot(kind='bar', ax=ax)
-    ax.set_title("Entrate, Uscite e Risparmio per mese")
-    ax.set_xlabel("Mese")
-    ax.set_ylabel("Importo (€)")
-    plt.xticks(rotation=45)
-    st.pyplot(fig)
+        # Media YTD fino al mese precedente
+        from datetime import datetime
+        mese_corr = datetime.today().month
+        mesi_ytd = mesi_ordinati[:mese_corr - 1] if mese_corr > 1 else []
+        df_macrocategorie["Media YTD"] = df_macrocategorie[mesi_ytd].mean(axis=1) if mesi_ytd else 0
+
+        # Tabella formattata
+        df_tabella = df_macrocategorie.copy().reset_index().rename(columns={"index": "Voce"})
+        for col in df_tabella.columns[1:]:
+            df_tabella[col] = df_tabella[col].apply(lambda x: formatta_euro(x) if pd.notnull(x) else "€ 0,00")
+
+        st.subheader("📊 Tabella riepilogo")
+        st.dataframe(df_tabella, hide_index=True)
+        esporta_excel(df_tabella, nome_file="Dashboard_finanziaria.xlsx")
+
+        # Grafico
+        df_grafico = df_macrocategorie[mesi_ordinati].transpose()
+        st.subheader("📈 Andamento mensile")
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(figsize=(12, 6))
+        df_grafico.plot(kind='bar', ax=ax)
+        ax.set_title("Entrate, Uscite e Risparmio per mese")
+        ax.set_xlabel("Mese")
+        ax.set_ylabel("Importo (€)")
+        plt.xticks(rotation=45)
+        st.pyplot(fig)

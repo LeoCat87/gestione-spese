@@ -12,3 +12,5 @@ Pillow
 PyMuPDF
 numpy
 fpdf==1.7.2
+xlsxwriter
+fpdf

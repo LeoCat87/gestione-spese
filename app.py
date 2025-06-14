@@ -84,6 +84,27 @@ if vista == "Spese dettagliate":
     # Categorie disponibili dalla prima colonna del foglio "Riepilogo Leo"
     categorie_tag = [str(tag) for tag in df_riepilogo.index if pd.notnull(tag)]
 
+# Aggiungi colonna formattata (non editabile) per visualizzazione
+df_filtrato["Valore (€)"] = df_filtrato["Valore"].map(formatta_euro)
+
+# Mostra tabella modificabile con colonna di visualizzazione
+edited_df = st.data_editor(
+    df_filtrato[["Testo", "Valore", "Valore (€)", "Tag"]],
+    use_container_width=True,
+    hide_index=True,
+    disabled=["Valore (€)"],  # disabilita la colonna formattata
+    column_config={
+        "Valore": st.column_config.NumberColumn("Valore (€)", step=0.01, format="%.2f"),
+        "Tag": st.column_config.SelectboxColumn(
+            "Tag",
+            help="Scegli una categoria",
+            options=categorie_tag,
+            required=True
+        )
+    }
+)
+
+
     # Filtra le spese per il mese selezionato
     df_filtrato = df_spese[df_spese["Mese"] == mese_sel].copy()
 

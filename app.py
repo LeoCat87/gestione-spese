@@ -82,7 +82,7 @@ if vista == "Spese dettagliate":
     mese_sel = st.selectbox("Seleziona il mese:", mesi_disponibili)
 
     # Categorie disponibili dalla prima colonna del foglio "Riepilogo Leo"
-    categorie_tag = df_riepilogo.index.tolist()
+    categorie_tag = [str(tag) for tag in df_riepilogo.index if pd.notnull(tag)]
 
     # Filtra le spese per il mese selezionato
     df_filtrato = df_spese[df_spese["Mese"] == mese_sel].copy()

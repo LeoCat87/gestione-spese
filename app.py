@@ -71,13 +71,15 @@ st.sidebar.title("📁 Navigazione")
 vista = st.sidebar.radio("Scegli una vista:", ["Spese dettagliate", "Riepilogo mensile", "Dashboard"])
 
 # === VISTA 1: SPESE DETTAGLIATE ===
-# === VISTA 1: SPESE DETTAGLIATE ===
 if vista == "Spese dettagliate":
     st.title("📌 Spese Dettagliate")
     df_spese = carica_spese()
 
-    # Mesi disponibili in ordine alfabetico
-    mesi_disponibili = sorted(df_spese["Mese"].dropna().unique().tolist())
+    # Ordine cronologico dei mesi
+    mesi_ordinati = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+                     "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"]
+    mesi_presenti = df_spese["Mese"].dropna().unique().tolist()
+    mesi_disponibili = [m for m in mesi_ordinati if m in mesi_presenti]
 
     mese_sel = st.selectbox("Seleziona il mese:", mesi_disponibili)
 
@@ -99,6 +101,7 @@ if vista == "Spese dettagliate":
 
     colonne_da_mostrare = ["Testo", "Valore", "Tag"]
     st.dataframe(df_filtrato[colonne_da_mostrare], use_container_width=True, hide_index=True)
+
 
 # === VISTA 2: RIEPILOGO MENSILE ===
 elif vista == "Riepilogo mensile":

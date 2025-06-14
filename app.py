@@ -49,18 +49,31 @@ vista = st.sidebar.radio("Scegli una vista:", ["Spese dettagliate", "Riepilogo m
 if vista == "Spese dettagliate":
     st.title("📌 Spese Dettagliate")
     df_spese = carica_spese()
+
+    # Filtra solo le righe con colonna "Mese" valorizzata
+    mesi_disponibili = sorted(df_spese["Mese"].dropna().unique())
+    mese_sel = st.selectbox("Seleziona il mese:", mesi_disponibili)
+
+    df_filtrato = df_spese[df_spese["Mese"] == mese_sel]
+
     col1, col2 = st.columns(2)
     with col1:
-        categoria_sel = st.selectbox("Filtra per categoria:", ["Tutte"] + sorted(df_spese["Categoria"].unique()))
+        categoria_sel = st.selectbox("Filtra per categoria:", ["Tutte"] + sorted(df_filtrato["Categoria"].unique()))
     with col2:
-        tag_sel = st.selectbox("Filtra per tag:", ["Tutti"] + sorted(df_spese["Tag"].unique()))
-    df_filtrato = df_spese.copy()
+        tag_sel = st.selectbox("Filtra per tag:", ["Tutti"] + sorted(df_filtrato["Tag"].unique()))
+
     if categoria_sel != "Tutte":
         df_filtrato = df_filtrato[df_filtrato["Categoria"] == categoria_sel]
     if tag_sel != "Tutti":
         df_filtrato = df_filtrato[df_filtrato["Tag"] == tag_sel]
+
+    df_filtrato = df_filtrato.copy()
     df_filtrato["Valore"] = df_filtrato["Valore"].map(formatta_euro)
-    st.dataframe(df_filtrato.drop(columns=["Categoria"]), use_container_width=True)
+
+    # Rimuovi colonne non necessarie e mostra tabella
+    colonne_da_mostrare = ["Testo", "Valore", "Tag"]
+    st.dataframe(df_filtrato[colonne_da_mostrare], use_container_width=True, hide_index=True)
+
 # === VISTA 2: RIEPILOGO MENSILE ===
 elif vista == "Riepilogo mensile":
     st.title("📊 Riepilogo Mensile per Tag")

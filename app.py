@@ -69,12 +69,18 @@ def formatta_euro(val):
 # === INTERFACCIA ===
 st.sidebar.title("📁 Navigazione")
 vista = st.sidebar.radio("Scegli una vista:", ["Spese dettagliate", "Riepilogo mensile", "Dashboard"])
+
 # === VISTA 1: SPESE DETTAGLIATE ===
 if vista == "Spese dettagliate":
     st.title("📌 Spese Dettagliate")
     df_spese = carica_spese()
 
-    mesi_disponibili = sorted(df_spese["Mese"].dropna().unique())
+    # Mesi in ordine alfabetico
+    mesi_disponibili = sorted([
+        "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+        "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
+    ])
+
     mese_sel = st.selectbox("Seleziona il mese:", mesi_disponibili)
 
     df_filtrato = df_spese[df_spese["Mese"] == mese_sel]

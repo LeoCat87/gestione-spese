@@ -84,36 +84,18 @@ if vista == "Spese dettagliate":
 
     df_filtrato = df_spese[df_spese["Mese"] == mese_sel].copy()
 
-# Mostra tabella modificabile con colonna di visualizzazione
-edited_df = st.data_editor(
-    df_filtrato[["Testo", "Valore", "Valore (€)", "Tag"]],
-    use_container_width=True,
-    hide_index=True,
-    disabled=["Valore (€)"],  # disabilita la colonna formattata
-    column_config={
-        "Valore": st.column_config.NumberColumn("Valore (€)", step=0.01, format="%.2f"),
-        "Tag": st.column_config.SelectboxColumn(
-            "Tag",
-            help="Scegli una categoria",
-            options=categorie_tag,
-            required=True
-        )
-    }
-)
-
-
-    # Filtra le spese per il mese selezionato
-    df_filtrato = df_spese[df_spese["Mese"] == mese_sel].copy()
-
     if df_filtrato.empty:
         st.info("🔍 Nessuna spesa registrata per il mese selezionato.")
     else:
-        # Modifica consentita solo su queste colonne
+        df_filtrato["Valore (€)"] = df_filtrato["Valore"].map(formatta_euro)
+
         edited_df = st.data_editor(
-            df_filtrato[["Testo", "Valore", "Tag"]],
+            df_filtrato[["Testo", "Valore", "Valore (€)", "Tag"]],
             use_container_width=True,
             hide_index=True,
+            disabled=["Valore (€)"],
             column_config={
+                "Valore": st.column_config.NumberColumn("Valore (€)", step=0.01, format="%.2f"),
                 "Tag": st.column_config.SelectboxColumn(
                     "Tag",
                     help="Scegli una categoria",
@@ -123,12 +105,10 @@ edited_df = st.data_editor(
             }
         )
 
-        # Se modificato, mostra bottone per salvare
-        if not edited_df.equals(df_filtrato[["Testo", "Valore", "Tag"]]):
+        if not edited_df.equals(df_filtrato[["Testo", "Valore", "Valore (€)", "Tag"]]):
             st.success("✅ Modifiche rilevate.")
             if st.button("💾 Salva modifiche"):
-                # Ricostruisci il DataFrame completo con le modifiche
-                df_aggiornato = df_spese[df_spese["Mese"] != mese_sel].copy()  # Tieni gli altri mesi
+                df_aggiornato = df_spese[df_spese["Mese"] != mese_sel].copy()
                 edited_df["Mese"] = mese_sel
                 edited_df["Valore"] = pd.to_numeric(edited_df["Valore"], errors="coerce").fillna(0)
 
@@ -141,17 +121,13 @@ edited_df = st.data_editor(
                         return "Uscite variabili"
 
                 edited_df["Categoria"] = edited_df["Tag"].apply(categoria_per_tag)
+                edited_df["Testo"] = edited_df["Testo"].fillna("")
 
-                # Unisci tutto e salva
-                df_finale = pd.concat([df_aggiornato, edited_df], ignore_index=True)
+                df_finale = pd.concat([df_aggiornato, edited_df.drop(columns=["Valore (€)"])], ignore_index=True)
 
-                # Salva nel foglio "Spese Leo"
-                import openpyxl
                 wb = openpyxl.load_workbook(EXCEL_PATH)
                 ws = wb["Spese Leo"]
 
-                # Cancella solo i dati del mese selezionato
-                from openpyxl.utils import get_column_letter
                 mesi_excel = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
                               "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
                 mese_col_start = None
@@ -162,17 +138,14 @@ edited_df = st.data_editor(
                         break
 
                 if mese_col_start:
-                    # Pulisce vecchie righe
                     for row in range(3, ws.max_row + 1):
                         for c in range(mese_col_start, mese_col_start + 3):
                             ws.cell(row=row, column=c).value = None
 
-                    # Scrive intestazioni
                     ws.cell(row=2, column=mese_col_start).value = "Testo"
                     ws.cell(row=2, column=mese_col_start + 1).value = "Valore"
                     ws.cell(row=2, column=mese_col_start + 2).value = "Tag"
 
-                    # Scrive nuove righe
                     for i, row in edited_df.iterrows():
                         ws.cell(row=3 + i, column=mese_col_start).value = row["Testo"]
                         ws.cell(row=3 + i, column=mese_col_start + 1).value = float(row["Valore"])

@@ -71,28 +71,99 @@ st.sidebar.title("📁 Navigazione")
 vista = st.sidebar.radio("Scegli una vista:", ["Spese dettagliate", "Riepilogo mensile", "Dashboard"])
 
 # === VISTA 1: SPESE DETTAGLIATE ===
-# === VISTA 1: SPESE DETTAGLIATE ===
 if vista == "Spese dettagliate":
     st.title("📌 Spese Dettagliate")
     df_spese = carica_spese()
+    df_riepilogo = carica_riepilogo()
 
-    # Mostra tutti i mesi, in ordine cronologico
+    # Tutti i mesi in ordine cronologico
     mesi_disponibili = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
                         "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"]
-
     mese_sel = st.selectbox("Seleziona il mese:", mesi_disponibili)
 
+    # Categorie disponibili dalla prima colonna del foglio "Riepilogo Leo"
+    categorie_tag = df_riepilogo.index.tolist()
+
     # Filtra le spese per il mese selezionato
-    df_filtrato = df_spese[df_spese["Mese"] == mese_sel]
+    df_filtrato = df_spese[df_spese["Mese"] == mese_sel].copy()
 
     if df_filtrato.empty:
         st.info("🔍 Nessuna spesa registrata per il mese selezionato.")
     else:
-        df_filtrato = df_filtrato.copy()
-        df_filtrato["Valore"] = df_filtrato["Valore"].map(formatta_euro)
+        # Modifica consentita solo su queste colonne
+        edited_df = st.data_editor(
+            df_filtrato[["Testo", "Valore", "Tag"]],
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Tag": st.column_config.SelectboxColumn(
+                    "Tag",
+                    help="Scegli una categoria",
+                    options=categorie_tag,
+                    required=True
+                )
+            }
+        )
 
-        colonne_da_mostrare = ["Testo", "Valore", "Tag"]
-        st.dataframe(df_filtrato[colonne_da_mostrare], use_container_width=True, hide_index=True)
+        # Se modificato, mostra bottone per salvare
+        if not edited_df.equals(df_filtrato[["Testo", "Valore", "Tag"]]):
+            st.success("✅ Modifiche rilevate.")
+            if st.button("💾 Salva modifiche"):
+                # Ricostruisci il DataFrame completo con le modifiche
+                df_aggiornato = df_spese[df_spese["Mese"] != mese_sel].copy()  # Tieni gli altri mesi
+                edited_df["Mese"] = mese_sel
+                edited_df["Valore"] = pd.to_numeric(edited_df["Valore"], errors="coerce").fillna(0)
+
+                def categoria_per_tag(tag):
+                    if tag in ["Stipendio", "Entrate extra"]:
+                        return "Entrate"
+                    elif tag in ["Affitto", "Bollette", "Spesa", "Abbonamenti", "Trasporti", "Assicurazione"]:
+                        return "Uscite necessarie"
+                    else:
+                        return "Uscite variabili"
+
+                edited_df["Categoria"] = edited_df["Tag"].apply(categoria_per_tag)
+
+                # Unisci tutto e salva
+                df_finale = pd.concat([df_aggiornato, edited_df], ignore_index=True)
+
+                # Salva nel foglio "Spese Leo"
+                import openpyxl
+                wb = openpyxl.load_workbook(EXCEL_PATH)
+                ws = wb["Spese Leo"]
+
+                # Cancella solo i dati del mese selezionato
+                from openpyxl.utils import get_column_letter
+                mesi_excel = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
+                              "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
+                mese_col_start = None
+                for col in range(1, ws.max_column + 1):
+                    val = ws.cell(row=1, column=col).value
+                    if val and isinstance(val, str) and val.lower() == mese_sel.lower():
+                        mese_col_start = col
+                        break
+
+                if mese_col_start:
+                    # Pulisce vecchie righe
+                    for row in range(3, ws.max_row + 1):
+                        for c in range(mese_col_start, mese_col_start + 3):
+                            ws.cell(row=row, column=c).value = None
+
+                    # Scrive intestazioni
+                    ws.cell(row=2, column=mese_col_start).value = "Testo"
+                    ws.cell(row=2, column=mese_col_start + 1).value = "Valore"
+                    ws.cell(row=2, column=mese_col_start + 2).value = "Tag"
+
+                    # Scrive nuove righe
+                    for i, row in edited_df.iterrows():
+                        ws.cell(row=3 + i, column=mese_col_start).value = row["Testo"]
+                        ws.cell(row=3 + i, column=mese_col_start + 1).value = float(row["Valore"])
+                        ws.cell(row=3 + i, column=mese_col_start + 2).value = row["Tag"]
+
+                    wb.save(EXCEL_PATH)
+                    st.success("✅ Modifiche salvate correttamente.")
+                else:
+                    st.error("❌ Colonna del mese non trovata nel foglio Excel.")
 
 # === VISTA 2: RIEPILOGO MENSILE ===
 elif vista == "Riepilogo mensile":

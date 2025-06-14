@@ -71,28 +71,19 @@ st.sidebar.title("📁 Navigazione")
 vista = st.sidebar.radio("Scegli una vista:", ["Spese dettagliate", "Riepilogo mensile", "Dashboard"])
 
 # === VISTA 1: SPESE DETTAGLIATE ===
+# === VISTA 1: SPESE DETTAGLIATE ===
 if vista == "Spese dettagliate":
     st.title("📌 Spese Dettagliate")
     df_spese = carica_spese()
 
-    # Mostra tutti i mesi, in ordine cronologico, anche se vuoti
+    # Mostra tutti i mesi, in ordine cronologico
     mesi_disponibili = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
                         "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"]
 
     mese_sel = st.selectbox("Seleziona il mese:", mesi_disponibili)
 
+    # Filtra le spese per il mese selezionato
     df_filtrato = df_spese[df_spese["Mese"] == mese_sel]
-
-    col1, col2 = st.columns(2)
-    with col1:
-        categoria_sel = st.selectbox("Filtra per categoria:", ["Tutte"] + sorted(df_filtrato["Categoria"].unique()))
-    with col2:
-        tag_sel = st.selectbox("Filtra per tag:", ["Tutti"] + sorted(df_filtrato["Tag"].unique()))
-
-    if categoria_sel != "Tutte":
-        df_filtrato = df_filtrato[df_filtrato["Categoria"] == categoria_sel]
-    if tag_sel != "Tutti":
-        df_filtrato = df_filtrato[df_filtrato["Tag"] == tag_sel]
 
     if df_filtrato.empty:
         st.info("🔍 Nessuna spesa registrata per il mese selezionato.")
@@ -102,8 +93,6 @@ if vista == "Spese dettagliate":
 
         colonne_da_mostrare = ["Testo", "Valore", "Tag"]
         st.dataframe(df_filtrato[colonne_da_mostrare], use_container_width=True, hide_index=True)
-
-
 
 # === VISTA 2: RIEPILOGO MENSILE ===
 elif vista == "Riepilogo mensile":

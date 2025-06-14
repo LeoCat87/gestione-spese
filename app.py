@@ -76,16 +76,13 @@ if vista == "Spese dettagliate":
     df_spese = carica_spese()
     df_riepilogo = carica_riepilogo()
 
-    # Tutti i mesi in ordine cronologico
     mesi_disponibili = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
                         "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"]
     mese_sel = st.selectbox("Seleziona il mese:", mesi_disponibili)
 
-    # Categorie disponibili dalla prima colonna del foglio "Riepilogo Leo"
     categorie_tag = [str(tag) for tag in df_riepilogo.index if pd.notnull(tag)]
 
-# Aggiungi colonna formattata (non editabile) per visualizzazione
-df_filtrato["Valore (€)"] = df_filtrato["Valore"].map(formatta_euro)
+    df_filtrato = df_spese[df_spese["Mese"] == mese_sel].copy()
 
 # Mostra tabella modificabile con colonna di visualizzazione
 edited_df = st.data_editor(

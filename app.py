@@ -75,11 +75,9 @@ if vista == "Spese dettagliate":
     st.title("📌 Spese Dettagliate")
     df_spese = carica_spese()
 
-    # Ordine cronologico dei mesi
-    mesi_ordinati = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
-                     "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"]
-    mesi_presenti = df_spese["Mese"].dropna().unique().tolist()
-    mesi_disponibili = [m for m in mesi_ordinati if m in mesi_presenti]
+    # Mostra tutti i mesi, in ordine cronologico, anche se vuoti
+    mesi_disponibili = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+                        "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"]
 
     mese_sel = st.selectbox("Seleziona il mese:", mesi_disponibili)
 
@@ -96,11 +94,15 @@ if vista == "Spese dettagliate":
     if tag_sel != "Tutti":
         df_filtrato = df_filtrato[df_filtrato["Tag"] == tag_sel]
 
-    df_filtrato = df_filtrato.copy()
-    df_filtrato["Valore"] = df_filtrato["Valore"].map(formatta_euro)
+    if df_filtrato.empty:
+        st.info("🔍 Nessuna spesa registrata per il mese selezionato.")
+    else:
+        df_filtrato = df_filtrato.copy()
+        df_filtrato["Valore"] = df_filtrato["Valore"].map(formatta_euro)
 
-    colonne_da_mostrare = ["Testo", "Valore", "Tag"]
-    st.dataframe(df_filtrato[colonne_da_mostrare], use_container_width=True, hide_index=True)
+        colonne_da_mostrare = ["Testo", "Valore", "Tag"]
+        st.dataframe(df_filtrato[colonne_da_mostrare], use_container_width=True, hide_index=True)
+
 
 
 # === VISTA 2: RIEPILOGO MENSILE ===

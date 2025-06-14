@@ -15,20 +15,44 @@ scarica_excel_da_drive()
 # === FUNZIONI DI CARICAMENTO ===
 @st.cache_data
 def carica_spese():
-    df = pd.read_excel(EXCEL_PATH, sheet_name="Spese Leo", header=[1])
-    df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
-    df = df.dropna(subset=["Valore", "Tag"])
-    df = df.reset_index(drop=True)
-    df["Valore"] = pd.to_numeric(df["Valore"], errors="coerce").fillna(0)
-    def categoria_per_tag(tag):
-        if tag in ["Stipendio", "Entrate extra"]:
-            return "Entrate"
-        elif tag in ["Affitto", "Bollette", "Spesa", "Abbonamenti", "Trasporti", "Assicurazione"]:
-            return "Uscite necessarie"
-        else:
-            return "Uscite variabili"
-    df["Categoria"] = df["Tag"].apply(categoria_per_tag)
-    return df
+    sheet = pd.read_excel(EXCEL_PATH, sheet_name="Spese Leo", header=None)
+    mesi_excel = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
+                  "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
+
+    col_mese = {}
+    for col_idx in range(sheet.shape[1]):
+        cella = sheet.iloc[0, col_idx]
+        if isinstance(cella, str) and cella.lower() in mesi_excel:
+            col_mese[cella.lower()] = col_idx
+
+    spese = []
+    for mese_lower, start_col in col_mese.items():
+        intestazioni = sheet.iloc[1, start_col:start_col+3].tolist()
+        if "Valore" in intestazioni and "Tag" in intestazioni:
+            df_blocco = sheet.iloc[2:, start_col:start_col+3].copy()
+            df_blocco.columns = intestazioni
+            df_blocco["Mese"] = mese_lower.capitalize()
+            spese.append(df_blocco)
+
+    if spese:
+        df = pd.concat(spese, ignore_index=True)
+        df = df.dropna(subset=["Valore", "Tag"])
+        df["Valore"] = pd.to_numeric(df["Valore"], errors="coerce").fillna(0)
+        df["Testo"] = df.get("Testo", "").fillna("")
+
+        def categoria_per_tag(tag):
+            if tag in ["Stipendio", "Entrate extra"]:
+                return "Entrate"
+            elif tag in ["Affitto", "Bollette", "Spesa", "Abbonamenti", "Trasporti", "Assicurazione"]:
+                return "Uscite necessarie"
+            else:
+                return "Uscite variabili"
+
+        df["Categoria"] = df["Tag"].apply(categoria_per_tag)
+        return df
+    else:
+        return pd.DataFrame(columns=["Testo", "Valore", "Tag", "Mese", "Categoria"])
+
 @st.cache_data
 def carica_riepilogo():
     df = pd.read_excel(EXCEL_PATH, sheet_name="Riepilogo Leo", index_col=0)
@@ -50,7 +74,6 @@ if vista == "Spese dettagliate":
     st.title("📌 Spese Dettagliate")
     df_spese = carica_spese()
 
-    # Filtra solo le righe con colonna "Mese" valorizzata
     mesi_disponibili = sorted(df_spese["Mese"].dropna().unique())
     mese_sel = st.selectbox("Seleziona il mese:", mesi_disponibili)
 
@@ -70,7 +93,6 @@ if vista == "Spese dettagliate":
     df_filtrato = df_filtrato.copy()
     df_filtrato["Valore"] = df_filtrato["Valore"].map(formatta_euro)
 
-    # Rimuovi colonne non necessarie e mostra tabella
     colonne_da_mostrare = ["Testo", "Valore", "Tag"]
     st.dataframe(df_filtrato[colonne_da_mostrare], use_container_width=True, hide_index=True)
 

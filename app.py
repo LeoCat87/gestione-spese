@@ -78,90 +78,95 @@ if vista == "Spese dettagliate":
 
     mesi_disponibili = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
                         "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"]
-    mese_sel = st.selectbox("Seleziona il mese:", mesi_disponibili)
+
+    col1, col2 = st.columns([1, 5])  # col1 = vuota o futura, col2 = filtro + tabella
+    with col2:
+        mese_sel = st.selectbox("Seleziona il mese:", mesi_disponibili)
 
     categorie_tag = [str(tag) for tag in df_riepilogo.index if pd.notnull(tag)]
-
     df_filtrato = df_spese[df_spese["Mese"] == mese_sel].copy()
 
     if df_filtrato.empty:
         st.info("🔍 Nessuna spesa registrata per il mese selezionato.")
     else:
-        edited_df = st.data_editor(
-            df_filtrato[["Testo", "Valore", "Tag"]],
-            use_container_width=False,
-            hide_index=True,
-            column_config={
-                "Testo": st.column_config.TextColumn(
-                    label="Descrizione",
-                    help="Testo libero"
-                ),
-                "Valore": st.column_config.NumberColumn(
-                    label="€",
-                    help="Importo della spesa",
-                    step=0.01,
-                    format="€ %.2f"
-                ),
-                "Tag": st.column_config.SelectboxColumn(
-                    label="Tag",
-                    help="Categoria",
-                    options=categorie_tag,
-                    required=True
-                )
-            }
-        )
+        with col2:
+            edited_df = st.data_editor(
+                df_filtrato[["Testo", "Valore", "Tag"]],
+                use_container_width=False,
+                hide_index=True,
+                column_config={
+                    "Testo": st.column_config.TextColumn(
+                        label="Descrizione",
+                        help="Testo libero"
+                    ),
+                    "Valore": st.column_config.NumberColumn(
+                        label="€",
+                        help="Importo della spesa",
+                        step=0.01,
+                        format="€ %.2f"
+                    ),
+                    "Tag": st.column_config.SelectboxColumn(
+                        label="Tag",
+                        help="Categoria",
+                        options=categorie_tag,
+                        required=True
+                    )
+                }
+            )
 
         if not edited_df.equals(df_filtrato[["Testo", "Valore", "Tag"]]):
-            st.success("✅ Modifiche rilevate.")
-            if st.button("💾 Salva modifiche"):
-                df_aggiornato = df_spese[df_spese["Mese"] != mese_sel].copy()
-                edited_df["Mese"] = mese_sel
-                edited_df["Valore"] = pd.to_numeric(edited_df["Valore"], errors="coerce").fillna(0)
+            with col2:
+                st.success("✅ Modifiche rilevate.")
+                if st.button("💾 Salva modifiche"):
+                    df_aggiornato = df_spese[df_spese["Mese"] != mese_sel].copy()
+                    edited_df["Mese"] = mese_sel
+                    edited_df["Valore"] = pd.to_numeric(edited_df["Valore"], errors="coerce").fillna(0)
 
-                def categoria_per_tag(tag):
-                    if tag in ["Stipendio", "Entrate extra"]:
-                        return "Entrate"
-                    elif tag in ["Affitto", "Bollette", "Spesa", "Abbonamenti", "Trasporti", "Assicurazione"]:
-                        return "Uscite necessarie"
+                    def categoria_per_tag(tag):
+                        if tag in ["Stipendio", "Entrate extra"]:
+                            return "Entrate"
+                        elif tag in ["Affitto", "Bollette", "Spesa", "Abbonamenti", "Trasporti", "Assicurazione"]:
+                            return "Uscite necessarie"
+                        else:
+                            return "Uscite variabili"
+
+                    edited_df["Categoria"] = edited_df["Tag"].apply(categoria_per_tag)
+                    edited_df["Testo"] = edited_df["Testo"].fillna("")
+
+                    df_finale = pd.concat([df_aggiornato, edited_df], ignore_index=True)
+
+                    import openpyxl
+                    wb = openpyxl.load_workbook(EXCEL_PATH)
+                    ws = wb["Spese Leo"]
+
+                    mesi_excel = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
+                                  "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
+                    mese_col_start = None
+                    for col in range(1, ws.max_column + 1):
+                        val = ws.cell(row=1, column=col).value
+                        if val and isinstance(val, str) and val.lower() == mese_sel.lower():
+                            mese_col_start = col
+                            break
+
+                    if mese_col_start:
+                        for row in range(3, ws.max_row + 1):
+                            for c in range(mese_col_start, mese_col_start + 3):
+                                ws.cell(row=row, column=c).value = None
+
+                        ws.cell(row=2, column=mese_col_start).value = "Testo"
+                        ws.cell(row=2, column=mese_col_start + 1).value = "Valore"
+                        ws.cell(row=2, column=mese_col_start + 2).value = "Tag"
+
+                        for i, row in edited_df.iterrows():
+                            ws.cell(row=3 + i, column=mese_col_start).value = row["Testo"]
+                            ws.cell(row=3 + i, column=mese_col_start + 1).value = float(row["Valore"])
+                            ws.cell(row=3 + i, column=mese_col_start + 2).value = row["Tag"]
+
+                        wb.save(EXCEL_PATH)
+                        st.success("✅ Modifiche salvate correttamente.")
                     else:
-                        return "Uscite variabili"
+                        st.error("❌ Colonna del mese non trovata nel foglio Excel.")
 
-                edited_df["Categoria"] = edited_df["Tag"].apply(categoria_per_tag)
-                edited_df["Testo"] = edited_df["Testo"].fillna("")
-
-                df_finale = pd.concat([df_aggiornato, edited_df], ignore_index=True)
-
-                import openpyxl
-                wb = openpyxl.load_workbook(EXCEL_PATH)
-                ws = wb["Spese Leo"]
-
-                mesi_excel = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
-                              "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
-                mese_col_start = None
-                for col in range(1, ws.max_column + 1):
-                    val = ws.cell(row=1, column=col).value
-                    if val and isinstance(val, str) and val.lower() == mese_sel.lower():
-                        mese_col_start = col
-                        break
-
-                if mese_col_start:
-                    for row in range(3, ws.max_row + 1):
-                        for c in range(mese_col_start, mese_col_start + 3):
-                            ws.cell(row=row, column=c).value = None
-
-                    ws.cell(row=2, column=mese_col_start).value = "Testo"
-                    ws.cell(row=2, column=mese_col_start + 1).value = "Valore"
-                    ws.cell(row=2, column=mese_col_start + 2).value = "Tag"
-
-                    for i, row in edited_df.iterrows():
-                        ws.cell(row=3 + i, column=mese_col_start).value = row["Testo"]
-                        ws.cell(row=3 + i, column=mese_col_start + 1).value = float(row["Valore"])
-                        ws.cell(row=3 + i, column=mese_col_start + 2).value = row["Tag"]
-
-                    wb.save(EXCEL_PATH)
-                    st.success("✅ Modifiche salvate correttamente.")
-                else:
-                    st.error("❌ Colonna del mese non trovata nel foglio Excel.")
 
 # === VISTA 2: RIEPILOGO MENSILE ===
 elif vista == "Riepilogo mensile":

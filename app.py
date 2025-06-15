@@ -87,23 +87,22 @@ if vista == "Spese dettagliate":
     if df_filtrato.empty:
         st.info("🔍 Nessuna spesa registrata per il mese selezionato.")
     else:
-       edited_df = st.data_editor(
-    df_filtrato[["Testo", "Valore", "Tag"]],
-    use_container_width=True,
-    hide_index=True,
-    column_config={
-        "Valore": st.column_config.NumberColumn("Valore (€)", step=0.01, format="%.2f"),
-        "Tag": st.column_config.SelectboxColumn(
-            "Tag",
-            help="Scegli una categoria",
-            options=categorie_tag,
-            required=True
+        edited_df = st.data_editor(
+            df_filtrato[["Testo", "Valore", "Tag"]],
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Valore": st.column_config.NumberColumn("Valore (€)", step=0.01, format="%.2f"),
+                "Tag": st.column_config.SelectboxColumn(
+                    "Tag",
+                    help="Scegli una categoria",
+                    options=categorie_tag,
+                    required=True
+                )
+            }
         )
-    }
-)
 
-
-        if not edited_df.equals(df_filtrato[["Testo", "Valore", "Valore (€)", "Tag"]]):
+        if not edited_df.equals(df_filtrato[["Testo", "Valore", "Tag"]]):
             st.success("✅ Modifiche rilevate.")
             if st.button("💾 Salva modifiche"):
                 df_aggiornato = df_spese[df_spese["Mese"] != mese_sel].copy()
@@ -121,8 +120,9 @@ if vista == "Spese dettagliate":
                 edited_df["Categoria"] = edited_df["Tag"].apply(categoria_per_tag)
                 edited_df["Testo"] = edited_df["Testo"].fillna("")
 
-                df_finale = pd.concat([df_aggiornato, edited_df.drop(columns=["Valore (€)"])], ignore_index=True)
+                df_finale = pd.concat([df_aggiornato, edited_df], ignore_index=True)
 
+                import openpyxl
                 wb = openpyxl.load_workbook(EXCEL_PATH)
                 ws = wb["Spese Leo"]
 

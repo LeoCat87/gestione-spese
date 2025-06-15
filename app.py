@@ -168,13 +168,16 @@ if vista == "Spese dettagliate":
                         st.success("✅ Modifiche salvate correttamente.")
                     else:
                         st.error("❌ Colonna del mese non trovata nel foglio Excel.")
-with open(EXCEL_PATH, "rb") as f:
-    st.download_button(
-        label="📥 Scarica file aggiornato",
-        data=f,
-        file_name="Spese_App_aggiornato.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+
+    # ✅ DOWNLOAD BUTTON deve stare dentro l'if
+    with col2:
+        with open(EXCEL_PATH, "rb") as f:
+            st.download_button(
+                label="📥 Scarica file aggiornato",
+                data=f,
+                file_name="Spese_App_aggiornato.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
 
 # === VISTA 2: RIEPILOGO MENSILE ===
 elif vista == "Riepilogo mensile":

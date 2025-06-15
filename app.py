@@ -1,19 +1,19 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-import gdown
 import os
 st.set_page_config(page_title="Gestione Spese", layout="wide")
 # === CONFIGURAZIONE ===
-GDRIVE_FILE_ID = "1PJ9TCcq4iBHeg8CpC1KWss0UWSg86BJn"
 EXCEL_PATH = "Spese_App.xlsx"
-# Scarica il file Excel da Google Drive
-@st.cache_data
-def scarica_excel_da_drive():
-    if not os.path.exists(EXCEL_PATH):  # Scarica solo se non esiste già
-        url = f"https://drive.google.com/uc?id={GDRIVE_FILE_ID}"
-        gdown.download(url, EXCEL_PATH, quiet=True)
-scarica_excel_da_drive()
+if not os.path.exists(EXCEL_PATH):
+    uploaded_file = st.file_uploader("Carica il file iniziale Spese_App.xlsx", type="xlsx")
+    if uploaded_file:
+        with open(EXCEL_PATH, "wb") as f:
+            f.write(uploaded_file.read())
+        st.experimental_rerun()
+    else:
+        st.stop()
+
 # === FUNZIONI DI CARICAMENTO ===
 @st.cache_data
 def carica_spese():

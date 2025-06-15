@@ -1,17 +1,23 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-import gdown
+import os
 st.set_page_config(page_title="Gestione Spese", layout="wide")
 # === CONFIGURAZIONE ===
-GDRIVE_FILE_ID = "1PJ9TCcq4iBHeg8CpC1KWss0UWSg86BJn"
+# === CONFIGURAZIONE ===
 EXCEL_PATH = "Spese_App.xlsx"
-# Scarica il file Excel da Google Drive
-@st.cache_data
-def scarica_excel_da_drive():
-    url = f"https://drive.google.com/uc?id={GDRIVE_FILE_ID}"
-    gdown.download(url, EXCEL_PATH, quiet=True)
-scarica_excel_da_drive()
+
+if not os.path.exists(EXCEL_PATH):
+    st.title("🔄 Carica file iniziale")
+    uploaded_file = st.file_uploader("Carica il file 'Spese_App.xlsx'", type="xlsx")
+
+    if uploaded_file:
+        with open(EXCEL_PATH, "wb") as f:
+            f.write(uploaded_file.read())
+        st.success("✅ File caricato con successo.")
+        st.info("🔁 Ora aggiorna manualmente la pagina per iniziare a usare l'app.")
+    st.stop()
+
 # === FUNZIONI DI CARICAMENTO ===
 @st.cache_data
 def carica_spese():
@@ -62,7 +68,6 @@ def carica_riepilogo():
 def carica_dashboard():
     df = pd.read_excel(EXCEL_PATH, sheet_name="Riepilogo Leo", index_col=0)
     df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
-    df["Total"] = df.get("Total", pd.Series(0))  # Se manca "Total", metti 0
     return df
 def formatta_euro(val):
     return f"€ {val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -78,53 +83,39 @@ if vista == "Spese dettagliate":
 
     mesi_disponibili = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
                         "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"]
-    mese_sel = st.selectbox("Seleziona il mese:", mesi_disponibili)
 
-    categorie_tag = [str(tag) for tag in df_riepilogo.index if pd.notnull(tag)]
+    col1, col2 = st.columns([1, 5])
+    with col2:
+        st.markdown("### ➕ Inserisci una nuova spesa")
 
-    df_filtrato = df_spese[df_spese["Mese"] == mese_sel].copy()
+        # Mappa macrocategorie → tag
+        mappa_macrocategorie = {
+            "Entrate": ["Stipendio", "Entrate extra", "Affitto Savoldo 4 + generico"],
+            "Uscite necessarie": [
+                "Affitto", "Bollette", "Spesa", "Abbonamenti", "Trasporti", "Assicurazione",
+                "PAC Investimenti", "Mutuo", "Luce&Gas", "Internet/Telefono", "Mezzi",
+                "Spese condominiali", "Spese comuni", "Auto (benzina, noleggio, pedaggi, parcheggi)",
+                "Spesa cibo", "Tari", "Unobravo", "Donazioni (StC, Unicef, Greenpeace)"
+            ],
+            "Uscite variabili": [
+                "Amazon", "Bolli governativi", "Farmacia/Visite", "Food Delivery", "Generiche",
+                "Multa", "Uscite (Pranzi,Cena,Apericena,Pub,etc)", "Prelievi", "Regali",
+                "Sharing (auto, motorino, bici)", "Shopping (vestiti, mobili,...)", "Stireria",
+                "Viaggi (treno, aereo, hotel, attrazioni, concerti, cinema)"
+            ]
+        }
 
-    if df_filtrato.empty:
-        st.info("🔍 Nessuna spesa registrata per il mese selezionato.")
-    else:
-        df_filtrato["Valore (€)"] = df_filtrato["Valore"].map(formatta_euro)
+        nuovo_testo = st.text_input("Descrizione", "")
+        nuovo_valore = st.number_input("Importo (€)", step=0.01, format="%.2f")
+        nuova_categoria = st.selectbox("Macrocategoria", list(mappa_macrocategorie.keys()))
+        nuovo_tag = st.selectbox("Tag", mappa_macrocategorie[nuova_categoria])
+        nuovo_mese = st.selectbox("Mese", mesi_disponibili)
 
-        edited_df = st.data_editor(
-            df_filtrato[["Testo", "Valore", "Valore (€)", "Tag"]],
-            use_container_width=True,
-            hide_index=True,
-            disabled=["Valore (€)"],
-            column_config={
-                "Valore": st.column_config.NumberColumn("Valore (€)", step=0.01, format="%.2f"),
-                "Tag": st.column_config.SelectboxColumn(
-                    "Tag",
-                    help="Scegli una categoria",
-                    options=categorie_tag,
-                    required=True
-                )
-            }
-        )
-
-        if not edited_df.equals(df_filtrato[["Testo", "Valore", "Valore (€)", "Tag"]]):
-            st.success("✅ Modifiche rilevate.")
-            if st.button("💾 Salva modifiche"):
-                df_aggiornato = df_spese[df_spese["Mese"] != mese_sel].copy()
-                edited_df["Mese"] = mese_sel
-                edited_df["Valore"] = pd.to_numeric(edited_df["Valore"], errors="coerce").fillna(0)
-
-                def categoria_per_tag(tag):
-                    if tag in ["Stipendio", "Entrate extra"]:
-                        return "Entrate"
-                    elif tag in ["Affitto", "Bollette", "Spesa", "Abbonamenti", "Trasporti", "Assicurazione"]:
-                        return "Uscite necessarie"
-                    else:
-                        return "Uscite variabili"
-
-                edited_df["Categoria"] = edited_df["Tag"].apply(categoria_per_tag)
-                edited_df["Testo"] = edited_df["Testo"].fillna("")
-
-                df_finale = pd.concat([df_aggiornato, edited_df.drop(columns=["Valore (€)"])], ignore_index=True)
-
+        if st.button("➕ Aggiungi spesa"):
+            if nuovo_testo.strip() == "" or nuovo_valore == 0:
+                st.warning("⚠️ Inserisci una descrizione e un valore diverso da zero.")
+            else:
+                import openpyxl
                 wb = openpyxl.load_workbook(EXCEL_PATH)
                 ws = wb["Spese Leo"]
 
@@ -133,28 +124,131 @@ if vista == "Spese dettagliate":
                 mese_col_start = None
                 for col in range(1, ws.max_column + 1):
                     val = ws.cell(row=1, column=col).value
-                    if val and isinstance(val, str) and val.lower() == mese_sel.lower():
+                    if val and isinstance(val, str) and val.lower() == nuovo_mese.lower():
                         mese_col_start = col
                         break
 
                 if mese_col_start:
-                    for row in range(3, ws.max_row + 1):
-                        for c in range(mese_col_start, mese_col_start + 3):
-                            ws.cell(row=row, column=c).value = None
+                    row_idx = 3
+                    while ws.cell(row=row_idx, column=mese_col_start).value not in [None, ""]:
+                        row_idx += 1
 
-                    ws.cell(row=2, column=mese_col_start).value = "Testo"
-                    ws.cell(row=2, column=mese_col_start + 1).value = "Valore"
-                    ws.cell(row=2, column=mese_col_start + 2).value = "Tag"
-
-                    for i, row in edited_df.iterrows():
-                        ws.cell(row=3 + i, column=mese_col_start).value = row["Testo"]
-                        ws.cell(row=3 + i, column=mese_col_start + 1).value = float(row["Valore"])
-                        ws.cell(row=3 + i, column=mese_col_start + 2).value = row["Tag"]
+                    ws.cell(row=row_idx, column=mese_col_start).value = nuovo_testo
+                    ws.cell(row=row_idx, column=mese_col_start + 1).value = float(nuovo_valore)
+                    ws.cell(row=row_idx, column=mese_col_start + 2).value = nuovo_tag
 
                     wb.save(EXCEL_PATH)
-                    st.success("✅ Modifiche salvate correttamente.")
+                    st.success("✅ Spesa aggiunta correttamente.")
+                    st.experimental_rerun()
                 else:
                     st.error("❌ Colonna del mese non trovata nel foglio Excel.")
+
+        # === FILTRI MULTIPLI ===
+        mesi_selezionati = st.multiselect("📅 Filtra per mesi:", mesi_disponibili, default=mesi_disponibili)
+
+        categorie_tag = sorted([str(tag) for tag in df_riepilogo.index if pd.notnull(tag)])
+        tag_selezionati = st.multiselect("🏷️ Filtra per categorie (Tag):", ["Tutti"] + categorie_tag, default=["Tutti"])
+
+        df_filtrato = df_spese[df_spese["Mese"].isin(mesi_selezionati)].copy()
+        if "Tutti" not in tag_selezionati:
+            df_filtrato = df_filtrato[df_filtrato["Tag"].isin(tag_selezionati)]
+
+        # Totale
+        if not df_filtrato.empty:
+            totale = df_filtrato["Valore"].sum()
+            st.markdown(f"**Totale spese filtrate:** {formatta_euro(totale)}")
+        else:
+            st.info("🔍 Nessuna spesa trovata con i filtri selezionati.")
+
+        # === EDITOR: consentito solo se un mese è selezionato ===
+        if len(mesi_selezionati) == 1 and not df_filtrato.empty:
+            edited_df = st.data_editor(
+                df_filtrato[["Testo", "Valore", "Tag"]],
+                use_container_width=False,
+                hide_index=True,
+                column_config={
+                    "Testo": st.column_config.TextColumn(
+                        label="Descrizione",
+                        help="Testo libero"
+                    ),
+                    "Valore": st.column_config.NumberColumn(
+                        label="€",
+                        help="Importo della spesa",
+                        step=0.01,
+                        format="€ %.2f"
+                    ),
+                    "Tag": st.column_config.SelectboxColumn(
+                        label="Tag",
+                        help="Categoria",
+                        options=categorie_tag,
+                        required=True
+                    )
+                }
+            )
+
+            if not edited_df.equals(df_filtrato[["Testo", "Valore", "Tag"]]):
+                st.success("✅ Modifiche rilevate.")
+                if st.button("💾 Salva modifiche"):
+                    mese_sel = mesi_selezionati[0]
+                    df_aggiornato = df_spese[df_spese["Mese"] != mese_sel].copy()
+                    edited_df["Mese"] = mese_sel
+                    edited_df["Valore"] = pd.to_numeric(edited_df["Valore"], errors="coerce").fillna(0)
+
+                    def categoria_per_tag(tag):
+                        if tag in mappa_macrocategorie["Entrate"]:
+                            return "Entrate"
+                        elif tag in mappa_macrocategorie["Uscite necessarie"]:
+                            return "Uscite necessarie"
+                        else:
+                            return "Uscite variabili"
+
+                    edited_df["Categoria"] = edited_df["Tag"].apply(categoria_per_tag)
+                    edited_df["Testo"] = edited_df["Testo"].fillna("")
+
+                    df_finale = pd.concat([df_aggiornato, edited_df], ignore_index=True)
+
+                    import openpyxl
+                    wb = openpyxl.load_workbook(EXCEL_PATH)
+                    ws = wb["Spese Leo"]
+
+                    mese_col_start = None
+                    for col in range(1, ws.max_column + 1):
+                        val = ws.cell(row=1, column=col).value
+                        if val and isinstance(val, str) and val.lower() == mese_sel.lower():
+                            mese_col_start = col
+                            break
+
+                    if mese_col_start:
+                        for row in range(3, ws.max_row + 1):
+                            for c in range(mese_col_start, mese_col_start + 3):
+                                ws.cell(row=row, column=c).value = None
+
+                        ws.cell(row=2, column=mese_col_start).value = "Testo"
+                        ws.cell(row=2, column=mese_col_start + 1).value = "Valore"
+                        ws.cell(row=2, column=mese_col_start + 2).value = "Tag"
+
+                        for i, row in edited_df.iterrows():
+                            ws.cell(row=3 + i, column=mese_col_start).value = row["Testo"]
+                            ws.cell(row=3 + i, column=mese_col_start + 1).value = float(row["Valore"])
+                            ws.cell(row=3 + i, column=mese_col_start + 2).value = row["Tag"]
+
+                        wb.save(EXCEL_PATH)
+                        st.success("✅ Modifiche salvate correttamente.")
+                    else:
+                        st.error("❌ Colonna del mese non trovata nel foglio Excel.")
+        elif len(mesi_selezionati) != 1:
+            st.info("✏️ Per modificare le spese, seleziona **un solo mese**.")
+        else:
+            st.info("🔍 Nessuna spesa da modificare per i filtri attivi.")
+
+        # Bottone per scaricare il file aggiornato
+        with open(EXCEL_PATH, "rb") as f:
+            st.download_button(
+                label="📥 Scarica file aggiornato",
+                data=f,
+                file_name="Spese_App_aggiornato.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
 
 # === VISTA 2: RIEPILOGO MENSILE ===
 elif vista == "Riepilogo mensile":

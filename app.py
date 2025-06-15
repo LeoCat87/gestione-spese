@@ -2,11 +2,13 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
+
 st.set_page_config(page_title="Gestione Spese", layout="wide")
-# === CONFIGURAZIONE ===
-# === CONFIGURAZIONE ===
+
+# === Percorso file Excel ===
 EXCEL_PATH = "Spese_App.xlsx"
 
+# === Caricamento iniziale file se non esiste ===
 if not os.path.exists(EXCEL_PATH):
     st.title("🔄 Carica file iniziale")
     uploaded_file = st.file_uploader("Carica il file 'Spese_App.xlsx'", type="xlsx")
@@ -18,10 +20,21 @@ if not os.path.exists(EXCEL_PATH):
         st.info("🔁 Ora aggiorna manualmente la pagina per iniziare a usare l'app.")
     st.stop()
 
-# === FUNZIONI DI CARICAMENTO ===
+# === Sidebar: filtri globali ===
+anno = st.sidebar.selectbox("📆 Anno", ["2024", "2025"], index=1)
+persona = st.sidebar.selectbox("👤 Persona", ["Leo", "Ale", "Leo&Ale"], index=0)
+
+# === Funzione per generare il nome corretto del foglio ===
+def nome_foglio(prefix):
+    if anno == "2025":
+        return f"{prefix} {persona}"
+    else:
+        return f"{prefix} {persona} {anno}"
+
+# === Funzione di caricamento spese ===
 @st.cache_data
 def carica_spese():
-    sheet = pd.read_excel(EXCEL_PATH, sheet_name="Spese Leo", header=None)
+    sheet = pd.read_excel(EXCEL_PATH, sheet_name=nome_foglio("Spese"), header=None)
     mesi_excel = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
                   "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
 
@@ -47,9 +60,14 @@ def carica_spese():
         df["Testo"] = df.get("Testo", "").fillna("")
 
         def categoria_per_tag(tag):
-            if tag in ["Stipendio", "Entrate extra"]:
+            if tag in ["Stipendio", "Entrate extra", "Affitto Savoldo 4 + generico"]:
                 return "Entrate"
-            elif tag in ["Affitto", "Bollette", "Spesa", "Abbonamenti", "Trasporti", "Assicurazione"]:
+            elif tag in [
+                "Affitto", "Bollette", "Spesa", "Abbonamenti", "Trasporti", "Assicurazione",
+                "PAC Investimenti", "Mutuo", "Luce&Gas", "Internet/Telefono", "Mezzi",
+                "Spese condominiali", "Spese comuni", "Auto (benzina, noleggio, pedaggi, parcheggi)",
+                "Spesa cibo", "Tari", "Unobravo", "Donazioni (StC, Unicef, Greenpeace)"
+            ]:
                 return "Uscite necessarie"
             else:
                 return "Uscite variabili"
@@ -59,18 +77,17 @@ def carica_spese():
     else:
         return pd.DataFrame(columns=["Testo", "Valore", "Tag", "Mese", "Categoria"])
 
+# === Funzione di caricamento riepilogo ===
 @st.cache_data
 def carica_riepilogo():
-    df = pd.read_excel(EXCEL_PATH, sheet_name="Riepilogo Leo", index_col=0)
+    df = pd.read_excel(EXCEL_PATH, sheet_name=nome_foglio("Riepilogo"), index_col=0)
     df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
     return df
-@st.cache_data
-def carica_dashboard():
-    df = pd.read_excel(EXCEL_PATH, sheet_name="Riepilogo Leo", index_col=0)
-    df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
-    return df
+
+# === Funzione utilità: formattazione in euro ===
 def formatta_euro(val):
     return f"€ {val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
 # === INTERFACCIA ===
 st.sidebar.title("📁 Navigazione")
 vista = st.sidebar.radio("Scegli una vista:", ["Spese dettagliate", "Riepilogo mensile", "Dashboard"])

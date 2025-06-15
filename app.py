@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import gdown
+import os
 st.set_page_config(page_title="Gestione Spese", layout="wide")
 # === CONFIGURAZIONE ===
 GDRIVE_FILE_ID = "1PJ9TCcq4iBHeg8CpC1KWss0UWSg86BJn"
@@ -9,8 +10,9 @@ EXCEL_PATH = "Spese_App.xlsx"
 # Scarica il file Excel da Google Drive
 @st.cache_data
 def scarica_excel_da_drive():
-    url = f"https://drive.google.com/uc?id={GDRIVE_FILE_ID}"
-    gdown.download(url, EXCEL_PATH, quiet=True)
+    if not os.path.exists(EXCEL_PATH):  # Scarica solo se non esiste già
+        url = f"https://drive.google.com/uc?id={GDRIVE_FILE_ID}"
+        gdown.download(url, EXCEL_PATH, quiet=True)
 scarica_excel_da_drive()
 # === FUNZIONI DI CARICAMENTO ===
 @st.cache_data
@@ -166,7 +168,13 @@ if vista == "Spese dettagliate":
                         st.success("✅ Modifiche salvate correttamente.")
                     else:
                         st.error("❌ Colonna del mese non trovata nel foglio Excel.")
-
+with open(EXCEL_PATH, "rb") as f:
+    st.download_button(
+        label="📥 Scarica file aggiornato",
+        data=f,
+        file_name="Spese_App_aggiornato.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 # === VISTA 2: RIEPILOGO MENSILE ===
 elif vista == "Riepilogo mensile":

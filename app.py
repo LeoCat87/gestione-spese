@@ -92,9 +92,14 @@ if vista == "Spese dettagliate":
             use_container_width=True,
             hide_index=True,
             column_config={
-                "Valore": st.column_config.NumberColumn("Valore (€)", step=0.01, format="%.2f"),
+                "Valore": st.column_config.NumberColumn(
+                    label="Valore (€)",
+                    help="Importo della spesa in euro",
+                    step=0.01,
+                    format="€ %.2f"
+                ),
                 "Tag": st.column_config.SelectboxColumn(
-                    "Tag",
+                    label="Tag",
                     help="Scegli una categoria",
                     options=categorie_tag,
                     required=True

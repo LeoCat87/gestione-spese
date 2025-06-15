@@ -89,18 +89,22 @@ if vista == "Spese dettagliate":
     else:
         edited_df = st.data_editor(
             df_filtrato[["Testo", "Valore", "Tag"]],
-            use_container_width=True,
+            use_container_width=False,
             hide_index=True,
             column_config={
+                "Testo": st.column_config.TextColumn(
+                    label="Descrizione",
+                    help="Testo libero"
+                ),
                 "Valore": st.column_config.NumberColumn(
-                    label="Valore (€)",
-                    help="Importo della spesa in euro",
+                    label="€",
+                    help="Importo della spesa",
                     step=0.01,
                     format="€ %.2f"
                 ),
                 "Tag": st.column_config.SelectboxColumn(
                     label="Tag",
-                    help="Scegli una categoria",
+                    help="Categoria",
                     options=categorie_tag,
                     required=True
                 )

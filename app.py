@@ -87,23 +87,21 @@ if vista == "Spese dettagliate":
     if df_filtrato.empty:
         st.info("🔍 Nessuna spesa registrata per il mese selezionato.")
     else:
-        df_filtrato["Valore (€)"] = df_filtrato["Valore"].map(formatta_euro)
-
-        edited_df = st.data_editor(
-            df_filtrato[["Testo", "Valore", "Valore (€)", "Tag"]],
-            use_container_width=True,
-            hide_index=True,
-            disabled=["Valore (€)"],
-            column_config={
-                "Valore": st.column_config.NumberColumn("Valore (€)", step=0.01, format="%.2f"),
-                "Tag": st.column_config.SelectboxColumn(
-                    "Tag",
-                    help="Scegli una categoria",
-                    options=categorie_tag,
-                    required=True
-                )
-            }
+       edited_df = st.data_editor(
+    df_filtrato[["Testo", "Valore", "Tag"]],
+    use_container_width=True,
+    hide_index=True,
+    column_config={
+        "Valore": st.column_config.NumberColumn("Valore (€)", step=0.01, format="%.2f"),
+        "Tag": st.column_config.SelectboxColumn(
+            "Tag",
+            help="Scegli una categoria",
+            options=categorie_tag,
+            required=True
         )
+    }
+)
+
 
         if not edited_df.equals(df_filtrato[["Testo", "Valore", "Valore (€)", "Tag"]]):
             st.success("✅ Modifiche rilevate.")

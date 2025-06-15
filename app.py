@@ -68,7 +68,6 @@ def carica_riepilogo():
 def carica_dashboard():
     df = pd.read_excel(EXCEL_PATH, sheet_name="Riepilogo Leo", index_col=0)
     df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
-    df["Total"] = df.get("Total", pd.Series(0))  # Se manca "Total", metti 0
     return df
 def formatta_euro(val):
     return f"€ {val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -89,8 +88,15 @@ if vista == "Spese dettagliate":
     with col2:
         mese_sel = st.selectbox("Seleziona il mese:", mesi_disponibili)
 
-    categorie_tag = [str(tag) for tag in df_riepilogo.index if pd.notnull(tag)]
-    df_filtrato = df_spese[df_spese["Mese"] == mese_sel].copy()
+    categorie_tag = sorted([str(tag) for tag in df_riepilogo.index if pd.notnull(tag)])
+categorie_tag_opzioni = ["Tutti"] + categorie_tag
+
+tag_sel = st.selectbox("Filtra per categoria (opzionale):", categorie_tag_opzioni)
+
+df_filtrato = df_spese[df_spese["Mese"] == mese_sel].copy()
+if tag_sel != "Tutti":
+    df_filtrato = df_filtrato[df_filtrato["Tag"] == tag_sel]
+
 
     if df_filtrato.empty:
         st.info("🔍 Nessuna spesa registrata per il mese selezionato.")

@@ -96,7 +96,7 @@ if vista == "Spese dettagliate":
 
         df_filtrato = df_spese[df_spese["Mese"].isin(mesi_selezionati)].copy()
         if "Tutti" not in tag_selezionati:
-        df_filtrato = df_filtrato[df_filtrato["Tag"].isin(tag_selezionati)]
+            df_filtrato = df_filtrato[df_filtrato["Tag"].isin(tag_selezionati)]
 
 if tag_sel != "Tutti":
     df_filtrato = df_filtrato[df_filtrato["Tag"] == tag_sel]

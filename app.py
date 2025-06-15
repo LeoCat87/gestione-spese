@@ -86,26 +86,27 @@ if vista == "Spese dettagliate":
 
     col1, col2 = st.columns([1, 5])  # col1 = vuota o futura, col2 = filtro + tabella
     with col2:
-        # FILTRI MULTIPLI
+        # Filtro per più mesi
         mesi_selezionati = st.multiselect("Seleziona uno o più mesi:", mesi_disponibili, default=mesi_disponibili)
 
+        # Filtro per più tag
         categorie_tag = sorted([str(tag) for tag in df_riepilogo.index if pd.notnull(tag)])
-        tag_selezionati = st.multiselect("Filtra per uno o più tag:", ["Tutti"] + categorie_tag, default=["Tutti"])    
+        tag_selezionati = st.multiselect("Filtra per uno o più tag:", ["Tutti"] + categorie_tag, default=["Tutti"])
 
-        tag_sel = st.selectbox("Filtra per categoria (opzionale):", categorie_tag_opzioni)
-
+        # Applica filtri
         df_filtrato = df_spese[df_spese["Mese"].isin(mesi_selezionati)].copy()
         if "Tutti" not in tag_selezionati:
             df_filtrato = df_filtrato[df_filtrato["Tag"].isin(tag_selezionati)]
 
-if tag_sel != "Tutti":
-    df_filtrato = df_filtrato[df_filtrato["Tag"] == tag_sel]
+        # Totale filtrato
+        if not df_filtrato.empty:
+            totale = df_filtrato["Valore"].sum()
+            st.markdown(f"**Totale spese filtrate:** {formatta_euro(totale)}")
+        else:
+            st.info("🔍 Nessuna spesa trovata con i filtri selezionati.")
 
-
-    if df_filtrato.empty:
-        st.info("🔍 Nessuna spesa registrata per il mese selezionato.")
-    else:
-        with col2:
+        # Editor della tabella (solo se è selezionato un solo mese per consentire modifica/salvataggio)
+        if len(mesi_selezionati) == 1 and df_filtrato.shape[0] > 0:
             edited_df = st.data_editor(
                 df_filtrato[["Testo", "Valore", "Tag"]],
                 use_container_width=False,
@@ -130,10 +131,10 @@ if tag_sel != "Tutti":
                 }
             )
 
-        if not edited_df.equals(df_filtrato[["Testo", "Valore", "Tag"]]):
-            with col2:
+            if not edited_df.equals(df_filtrato[["Testo", "Valore", "Tag"]]):
                 st.success("✅ Modifiche rilevate.")
                 if st.button("💾 Salva modifiche"):
+                    mese_sel = mesi_selezionati[0]  # unica selezione
                     df_aggiornato = df_spese[df_spese["Mese"] != mese_sel].copy()
                     edited_df["Mese"] = mese_sel
                     edited_df["Valore"] = pd.to_numeric(edited_df["Valore"], errors="coerce").fillna(0)
@@ -182,9 +183,12 @@ if tag_sel != "Tutti":
                         st.success("✅ Modifiche salvate correttamente.")
                     else:
                         st.error("❌ Colonna del mese non trovata nel foglio Excel.")
+        elif len(mesi_selezionati) != 1:
+            st.info("✏️ Puoi modificare le spese solo selezionando **un singolo mese**.")
+        else:
+            st.info("🔍 Nessuna spesa disponibile per la modifica.")
 
-    # ✅ DOWNLOAD BUTTON deve stare dentro l'if
-    with col2:
+        # Bottone per scaricare il file aggiornato
         with open(EXCEL_PATH, "rb") as f:
             st.download_button(
                 label="📥 Scarica file aggiornato",

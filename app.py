@@ -86,14 +86,19 @@ if vista == "Spese dettagliate":
 
     col1, col2 = st.columns([1, 5])  # col1 = vuota o futura, col2 = filtro + tabella
     with col2:
-        mese_sel = st.selectbox("Seleziona il mese:", mesi_disponibili)
+        # FILTRI MULTIPLI
+    mesi_selezionati = st.multiselect("Seleziona uno o più mesi:", mesi_disponibili, default=mesi_disponibili)
 
     categorie_tag = sorted([str(tag) for tag in df_riepilogo.index if pd.notnull(tag)])
-categorie_tag_opzioni = ["Tutti"] + categorie_tag
+    tag_selezionati = st.multiselect("Filtra per uno o più tag:", ["Tutti"] + categorie_tag, default=["Tutti"])
+
 
 tag_sel = st.selectbox("Filtra per categoria (opzionale):", categorie_tag_opzioni)
 
-df_filtrato = df_spese[df_spese["Mese"] == mese_sel].copy()
+df_filtrato = df_spese[df_spese["Mese"].isin(mesi_selezionati)].copy()
+if "Tutti" not in tag_selezionati:
+    df_filtrato = df_filtrato[df_filtrato["Tag"].isin(tag_selezionati)]
+
 if tag_sel != "Tutti":
     df_filtrato = df_filtrato[df_filtrato["Tag"] == tag_sel]
 

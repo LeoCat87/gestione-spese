@@ -5,11 +5,17 @@ import os
 st.set_page_config(page_title="Gestione Spese", layout="wide")
 # === CONFIGURAZIONE ===
 EXCEL_PATH = "Spese_App.xlsx"
-if not os.path.exists(EXCEL_PATH):
-    uploaded_file = st.file_uploader("Carica il file iniziale Spese_App.xlsx", type="xlsx")
+if "file_caricato" not in st.session_state:
+    st.session_state.file_caricato = os.path.exists(EXCEL_PATH)
+
+if not st.session_state.file_caricato:
+    st.title("🔄 Carica file iniziale")
+    uploaded_file = st.file_uploader("Carica il file 'Spese_App.xlsx'", type="xlsx")
     if uploaded_file:
         with open(EXCEL_PATH, "wb") as f:
             f.write(uploaded_file.read())
+        st.session_state.file_caricato = True
+        st.success("✅ File caricato con successo. Ricarico l'app...")
         st.experimental_rerun()
     else:
         st.stop()

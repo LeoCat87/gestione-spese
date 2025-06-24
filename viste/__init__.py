@@ -1,2 +1,1 @@
-# rende 'viste' un pacchetto importabile
-crea cartella viste con init
+✅ Aggiunto __init__.py per rendere `viste` un pacchetto Python

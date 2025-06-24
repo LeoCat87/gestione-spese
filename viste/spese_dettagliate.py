@@ -5,7 +5,7 @@ import pandas as pd
 
 def mostra_spese_dettagliate(EXCEL_PATH, anno, persona, nome_foglio, carica_spese, carica_riepilogo, formatta_euro):
     st.title("📌 Spese Dettagliate")
-    df_spese = carica_spese()
+    df_spese = carica_spese(anno, persona)
     df_riepilogo = carica_riepilogo()
 
     mesi_disponibili = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",

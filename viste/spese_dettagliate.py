@@ -112,8 +112,6 @@ def mostra_spese_dettagliate(EXCEL_PATH, anno, persona, nome_foglio, carica_spes
                 edited_df["Categoria"] = edited_df["Tag"].apply(categoria_per_tag)
                 edited_df["Testo"] = edited_df["Testo"].fillna("")
 
-                df_finale = pd.concat([df_aggiornato, edited_df], ignore_index=True)
-
                 wb = openpyxl.load_workbook(EXCEL_PATH)
                 ws = wb[nome_foglio("Spese")]
 

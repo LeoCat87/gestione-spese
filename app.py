@@ -34,30 +34,41 @@ def nome_foglio(prefix, anno, persona):
 @st.cache_data(show_spinner=False)
 def carica_spese(anno: str, persona: str):
     nome_sheet = nome_foglio("Spese", anno, persona)
-    st.write(f"📄 Caricamento foglio: `{nome_sheet}`")  # <-- DEBUG VISIBILE
+    st.write(f"📄 Caricamento foglio: `{nome_sheet}`")  # Debug
 
     sheet = pd.read_excel(EXCEL_PATH, sheet_name=nome_sheet, header=None)
 
     mesi_excel = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
                   "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
+
     col_mese = {}
     for col_idx in range(sheet.shape[1]):
-        cella = sheet.iloc[0, col_idx]
-        if isinstance(cella, str) and cella.lower() in mesi_excel:
-            col_mese[cella.lower()] = col_idx
+        cella = str(sheet.iloc[0, col_idx]).strip().lower()
+        if cella in mesi_excel:
+            col_mese[cella] = col_idx
+
+    st.write(f"🧩 Foglio caricato: {sheet.shape[0]} righe, {sheet.shape[1]} colonne")
+    st.write("🔎 Colonne identificate come mesi:")
+    st.write(col_mese)
+
     spese = []
     for mese_lower, start_col in col_mese.items():
         intestazioni = sheet.iloc[1, start_col:start_col+3].tolist()
+        st.write(f"➡️ Analisi mese: {mese_lower.capitalize()} (colonna {start_col})")
+        st.write(f"Intestazioni rilevate: {intestazioni}")
+
         if "Valore" in intestazioni and "Tag" in intestazioni:
             df_blocco = sheet.iloc[2:, start_col:start_col+3].copy()
             df_blocco.columns = intestazioni
             df_blocco["Mese"] = mese_lower.capitalize()
             spese.append(df_blocco)
+
     if spese:
         df = pd.concat(spese, ignore_index=True)
         df = df.dropna(subset=["Valore", "Tag"])
         df["Valore"] = pd.to_numeric(df["Valore"], errors="coerce").fillna(0)
         df["Testo"] = df.get("Testo", "").fillna("")
+
         def categoria_per_tag(tag):
             if tag in ["Stipendio", "Entrate extra", "Affitto Savoldo 4 + generico"]:
                 return "Entrate"
@@ -70,9 +81,11 @@ def carica_spese(anno: str, persona: str):
                 return "Uscite necessarie"
             else:
                 return "Uscite variabili"
+
         df["Categoria"] = df["Tag"].apply(categoria_per_tag)
         return df
     else:
+        st.warning("⚠️ Nessuna spesa trovata nei blocchi mensili del foglio.")
         return pd.DataFrame(columns=["Testo", "Valore", "Tag", "Mese", "Categoria"])
 
 @st.cache_data(show_spinner=False)

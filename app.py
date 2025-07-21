@@ -31,9 +31,13 @@ def nome_foglio(prefix, anno, persona):
     else:
         return f"{prefix} {persona} {anno}"
 
-@st.cache_data
-def carica_spese(anno, persona):
-    sheet = pd.read_excel(EXCEL_PATH, sheet_name=nome_foglio("Spese", anno, persona), header=None)
+@st.cache_data(show_spinner=False)
+def carica_spese(anno: str, persona: str):
+    nome_sheet = nome_foglio("Spese", anno, persona)
+    st.write(f"📄 Caricamento foglio: `{nome_sheet}`")  # <-- DEBUG VISIBILE
+
+    sheet = pd.read_excel(EXCEL_PATH, sheet_name=nome_sheet, header=None)
+
     mesi_excel = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
                   "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"]
     col_mese = {}
@@ -71,9 +75,12 @@ def carica_spese(anno, persona):
     else:
         return pd.DataFrame(columns=["Testo", "Valore", "Tag", "Mese", "Categoria"])
 
-@st.cache_data
-def carica_riepilogo(anno, persona):
-    df = pd.read_excel(EXCEL_PATH, sheet_name=nome_foglio("Riepilogo", anno, persona), index_col=0)
+@st.cache_data(show_spinner=False)
+def carica_riepilogo(anno: str, persona: str):
+    nome_sheet = nome_foglio("Riepilogo", anno, persona)
+    st.write(f"📄 Caricamento foglio: `{nome_sheet}`")  # <-- DEBUG VISIBILE
+
+    df = pd.read_excel(EXCEL_PATH, sheet_name=nome_sheet, index_col=0)
     df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
     return df
 
